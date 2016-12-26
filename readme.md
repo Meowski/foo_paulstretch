@@ -9,8 +9,10 @@ Copy the foo_paulstretch.dll file from the binary folder in this repository into
 ## Usage
 
 First, enable the Paulstretch DSP under Preferences > DSP Manager in foobar2000. Then, under the Playback menu is a paulstretch item. 
-Settings for the stretch amount and window sampling size are there. I recommend creating a keyboard shortcut if you like tinkering 
-with the stretch rate as much as I do.
+Settings for the stretch amount, window sampling size, and enabling/disabling during playback are there. These settings are reset to 
+default settings each time foobar2000 is started. 
+
+I recommend creating a keyboard shortcut for quick access.
 
 ## Notes
 

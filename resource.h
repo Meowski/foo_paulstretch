@@ -8,7 +8,6 @@
 #define IDC_STRETCH_LABEL               1018
 #define IDC_WINDOW_SIZE_LABEL           1019
 #define IDC_ENABLE_STRETCH              1020
-#define IDC_WINDOW_SIZE_LABEL2          1021
 #define IDC_ENABLED_LABEL               1021
 
 // Next default values for new objects

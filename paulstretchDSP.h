@@ -1,3 +1,4 @@
+#pragma once
 #include "stdafx.h"
 #include "resource.h"
 #include "paulstretch.h"
@@ -20,8 +21,7 @@ public:
 	}
 
 	static GUID g_get_guid() {
-		//This is our GUID. Generate your own one when reusing this code.
-		static const GUID guid = { 0x414fb5b7, 0xd579, 0x44be,{ 0x80, 0x77, 0x4a, 0x85, 0x62, 0xf8, 0x41, 0xaf } };
+		static const GUID guid = { 0x5efad0c, 0x7322, 0x40ce,{ 0x94, 0x8e, 0xfe, 0x82, 0xba, 0x67, 0x1, 0x72 } };
 		return guid;
 	}
 
@@ -51,15 +51,9 @@ public:
 		if (myQueue.size() >= sampleCountRequiredForStretch(window_size_in_samples, myLastSeenNumberOfChannels))
 			handle_stretch(myLastSeenWindowSize, stretch_amount, myLastSeenNumberOfChannels, myLastSeenSampleRate, myLastSeenChannelConfig);
 
-
-		// To retrieve the currently processed track, use get_cur_file().
-		// Warning: the track is not always known - it's up to the calling component to provide this data and in some situations we'll be working with data that doesn't originate from an audio file.
-		// If you rely on get_cur_file(), you should change need_track_change_mark() to return true to get accurate information when advancing between tracks.
-
-		// We'll drop everything as we completely change the input
+		// We need to buffer chunks on our own, so drop everything.
 		//
 		return false;
-		// return true; //Return true to keep the chunk or false to drop it from the chain.
 	}
 
 	void remember_state(audio_chunk* chunk)
@@ -118,7 +112,7 @@ public:
 					new_audio_sample[i * n_channels + j] = results[j][i];
 			}
 
-			// does a deep copy of audio samples.
+			// does a deep copy of audio samples, so we retain ownership of pointer.
 			//
 			new_chunk->set_data(new_audio_sample.get(), results[0].get_size(),
 				n_channels, s_rate, channel_config);
@@ -143,15 +137,9 @@ public:
 		return window_size_samples * n_channels;
 	}
 
-	void on_endofplayback(abort_callback &) {
-		// The end of playlist has been reached, we've already received the last decoded audio chunk.
-		// We need to finish any pending processing and output any buffered data through insert_chunk().
-	}
+	void on_endofplayback(abort_callback &) {}
 	void on_endoftrack(abort_callback &) {
-		// Should do nothing except for special cases where your DSP performs special operations when changing tracks.
-		// If this function does anything, you must change need_track_change_mark() to return true.
-		// If you have pending audio data that you wish to output, you can use insert_chunk() to do so.	
-		
+
 		// For paulstretch, we need to pad with 0s for the last window to process.  We pad just enough
 		// to trigger one more stretch chunk to be inserted.
 		//
@@ -161,11 +149,11 @@ public:
 		handle_stretch(myLastSeenWindowSize, stretch_amount, myLastSeenNumberOfChannels, myLastSeenSampleRate, myLastSeenChannelConfig);
 	}
 
+	// If you have any audio data buffered, you should drop it immediately and reset the DSP to a freshly initialized state.
+	// Called after a seek etc.
+	//
 	void flush() {
-		// If you have any audio data buffered, you should drop it immediately and reset the DSP to a freshly initialized state.
-		// Called after a seek etc.
-
-		// We could flush, but I don't think it has a bad effect on the playback, so why mess with any memory allocated.
+		// We could flush, but I don't think it has a bad effect on the playback, so why mess with any allocated memory.
 	}
 
 	double get_latency() {
@@ -173,9 +161,12 @@ public:
 		return 0;
 	}
 
+	// Return true if you need on_endoftrack() or need to accurately know which track we're currently processing
+	// WARNING: If you return true, the DSP manager will fire on_endofplayback() at DSPs that are before us in the chain on track change to ensure that we get an accurate mark, so use it only when needed.
+	//
 	bool need_track_change_mark() {
-		// Return true if you need on_endoftrack() or need to accurately know which track we're currently processing
-		// WARNING: If you return true, the DSP manager will fire on_endofplayback() at DSPs that are before us in the chain on track change to ensure that we get an accurate mark, so use it only when needed.
+		// We need to buffer one extra window for paulstretch.
+		//
 		return true;
 	}
 

@@ -119,7 +119,19 @@ public:
 
 			// now remove stepsize from circular buffer (half the window size typically)
 			//
-			for (size_t i = 0; i < static_cast<size_t>(paulstretch::step_size(window_size_samples, stretch_rate) * n_channels); i++) {
+			// Note, to avoid infinite loops, it must be that we take at least one step in the sample:
+			//
+			//		(window_size_in_samples / 2.0f) / stretch_rate >= 1
+			//
+			// meaning:
+			//
+			//		window_size_in_samples >= 2 * stretch_rate
+			//
+			// When this does not happen, we will enforce a step of one.
+			//
+			size_t step = static_cast<size_t>(paulstretch::step_size(window_size_samples, stretch_rate) * n_channels);
+			step = max(1, step);
+			for (size_t i = 0; i < step; i++) {
 				if (myQueue.empty())
 					break; // shouldn't happen, but we'll check anyhow.
 				myQueue.pop_front();
@@ -139,6 +151,9 @@ public:
 
 	void on_endofplayback(abort_callback &) {}
 	void on_endoftrack(abort_callback &) {
+
+		if (!enabled)
+			return;
 
 		// For paulstretch, we need to pad with 0s for the last window to process.  We pad just enough
 		// to trigger one more stretch chunk to be inserted.

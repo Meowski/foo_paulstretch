@@ -238,7 +238,9 @@ public:
 
 	static size_t required_sample_size(float window_size_in_seconds, size_t sample_rate)
 	{
-		return optimize_windowsize(static_cast<size_t>(window_size_in_seconds * sample_rate));
+		size_t size_in_samples = static_cast<size_t>(window_size_in_seconds * sample_rate);
+		size_in_samples = max(size_in_samples, 16);
+		return optimize_windowsize(size_in_samples);
 	}
 
 	// Note: kiss_fftr scales by nfft/2 while kiss_fftri scales by 2

@@ -2,7 +2,6 @@
 #include "stdafx.h"
 #include <complex>
 #include <random>
-#include <iostream>
 #include <chrono>
 #include "kissfft/kiss_fftr.h"
 #include <memory>

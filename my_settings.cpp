@@ -79,6 +79,7 @@ public:
 		COMMAND_HANDLER_EX(IDCANCEL, BN_CLICKED, OnCancel)
 		COMMAND_HANDLER_EX(IDC_ENABLE_STRETCH, BN_CLICKED, OnEnabledCheckBoxChanged)
 		MSG_WM_HSCROLL(OnHScroll)
+		NOTIFY_HANDLER(IDC_STRETCH_SLIDER, NM_CUSTOMDRAW, OnNMCustomdrawStretchSlider)
 	END_MSG_MAP()
 
 	BOOL OnInitDialog(CWindow, LPARAM)
@@ -134,7 +135,7 @@ public:
 
 	void updateWindow(int value) const
 	{
-		pfc::string_formatter msg; msg << "Window Size: " << pfc::format_int(value) << " ms";
+		pfc::string_formatter msg; msg << "Window Size: " << pfc::format_float(value / 1000.0f, 0, 2) << " s";
 		uSetDlgItemText(*this, IDC_WINDOW_SIZE_LABEL, msg);
 		myCurrentWindowPos = value;
 		dsp_paulstretch::window_size = value / 1000.0f;
@@ -164,12 +165,14 @@ private:
 	CButton myEnabledCheckBox;
 	const static int ourStretchMin = 10;
 	const static int ourDefaultStretch = 40;
-	const static int ourStretchMax = 200;
+	const static int ourStretchMax = 400;
 	const static int ourWindowSizeMin = 16;
 	const static int ourDefaultWindowSize = 280;
 	const static int ourWindowSizeMax = 2000;
 
 	static_api_ptr_t<dsp_config_manager> myDSP_manager_ptr;
+public:
+	LRESULT OnNMCustomdrawStretchSlider(int /*idCtrl*/, LPNMHDR pNMHDR, BOOL& /*bHandled*/);
 };
 
 int CMySettingsDialog::myCurrentStretchPos = ourDefaultStretch;
@@ -185,4 +188,13 @@ void StartMenu() {
 	catch (std::exception const & e) {
 		popup_message::g_complain("Dialog creation failure", e);
 	}
+}
+
+
+LRESULT CMySettingsDialog::OnNMCustomdrawStretchSlider(int /*idCtrl*/, LPNMHDR pNMHDR, BOOL& /*bHandled*/)
+{
+	LPNMCUSTOMDRAW pNMCD = reinterpret_cast<LPNMCUSTOMDRAW>(pNMHDR);
+	// TODO: Add your control notification handler code here
+
+	return 0;
 }

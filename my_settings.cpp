@@ -79,7 +79,6 @@ public:
 		COMMAND_HANDLER_EX(IDCANCEL, BN_CLICKED, OnCancel)
 		COMMAND_HANDLER_EX(IDC_ENABLE_STRETCH, BN_CLICKED, OnEnabledCheckBoxChanged)
 		MSG_WM_HSCROLL(OnHScroll)
-		NOTIFY_HANDLER(IDC_STRETCH_SLIDER, NM_CUSTOMDRAW, OnNMCustomdrawStretchSlider)
 	END_MSG_MAP()
 
 	BOOL OnInitDialog(CWindow, LPARAM)
@@ -171,8 +170,6 @@ private:
 	const static int ourWindowSizeMax = 2000;
 
 	static_api_ptr_t<dsp_config_manager> myDSP_manager_ptr;
-public:
-	LRESULT OnNMCustomdrawStretchSlider(int /*idCtrl*/, LPNMHDR pNMHDR, BOOL& /*bHandled*/);
 };
 
 int CMySettingsDialog::myCurrentStretchPos = ourDefaultStretch;
@@ -188,13 +185,4 @@ void StartMenu() {
 	catch (std::exception const & e) {
 		popup_message::g_complain("Dialog creation failure", e);
 	}
-}
-
-
-LRESULT CMySettingsDialog::OnNMCustomdrawStretchSlider(int /*idCtrl*/, LPNMHDR pNMHDR, BOOL& /*bHandled*/)
-{
-	LPNMCUSTOMDRAW pNMCD = reinterpret_cast<LPNMCUSTOMDRAW>(pNMHDR);
-	// TODO: Add your control notification handler code here
-
-	return 0;
 }

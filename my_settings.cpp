@@ -14,6 +14,7 @@ public:
 	enum
 	{
 		cmd_stretch_settings = 0,
+		cmd_stretch_enable,
 		cmd_total
 	};
 
@@ -23,9 +24,12 @@ public:
 
 	GUID get_command(t_uint32 p_index) {
 		static GUID my_settings_guid = { 0xe1a3b87f, 0x61a7, 0x4989,{ 0x9c, 0xa6, 0x5e, 0x89, 0xcf, 0x8, 0x86, 0xfc } };
+		static GUID my_enabled_guid =  { 0xa0d9b939, 0xf3d8, 0x40c1,{ 0x9a, 0xf1, 0xa2, 0xae, 0xa5, 0xde, 0xe2, 0xa8 } };
+
 		switch (p_index)
 		{
 		case cmd_stretch_settings: return my_settings_guid; 
+		case cmd_stretch_enable: return my_enabled_guid;
 		default: uBugCheck();
 		}
 	}
@@ -33,6 +37,7 @@ public:
 	void get_name(t_uint32 p_index, pfc::string_base & p_out) {
 		switch (p_index) {
 		case cmd_stretch_settings: p_out = "Paulstretch Settings"; break;
+		case cmd_stretch_enable: p_out = "Enable Paulstretch Toggle"; break;
 		default: uBugCheck();
 		}
 	}
@@ -40,6 +45,7 @@ public:
 	bool get_description(t_uint32 p_index, pfc::string_base & p_out) {
 		switch (p_index) {
 		case cmd_stretch_settings: p_out = "Set commands for Paulstretch."; return true;
+		case cmd_stretch_enable: p_out = "Toggle to enable/disable Paulstretch (for keyboard shortcuts)."; return true;
 		default: uBugCheck();
 		}
 	}
@@ -53,10 +59,20 @@ public:
 		case cmd_stretch_settings:
 			::StartMenu();
 			break;
+		case cmd_stretch_enable: togglePaulstretch(); break;
 		default:
 			uBugCheck();
 		}
 	}
+
+private:
+
+	// Uses global variables (ew).  If the Paulstretch settings window is also open, the
+	// changes will not necessarily be reflected in that window via this function call.
+	//
+	// implemented near bottom.
+	//
+	void togglePaulstretch();
 
 };
 
@@ -175,6 +191,14 @@ private:
 int CMySettingsDialog::myCurrentStretchPos = ourDefaultStretch;
 int CMySettingsDialog::myCurrentWindowPos = ourDefaultWindowSize;
 bool CMySettingsDialog::myEnabled = false;
+
+
+void my_settings::togglePaulstretch()
+{
+	bool newValue = !dsp_paulstretch::enabled;
+	dsp_paulstretch::enabled = newValue;
+	CMySettingsDialog::myEnabled = newValue;
+}
 
 void StartMenu() {
 	try {

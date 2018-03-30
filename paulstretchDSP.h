@@ -4,6 +4,7 @@
 #include "paulstretch.h"
 #include <queue>
 #include <chrono>
+#include <iostream>
 
 
 class dsp_paulstretch : public dsp_impl_base
@@ -15,9 +16,11 @@ public:
 	static bool enabled;
 
 	dsp_paulstretch() :
-		myLastSeenWindowSize(window_size), myLastSeenNumberOfChannels(2), myLastSeenSampleRate(0), 
-		myLastSeenChannelConfig(0), myPreviousWindows(64) {
-		myLastTimeWindowSizeChanged = std::chrono::system_clock::now();
+		myLastSeenNumberOfChannels(-1), 
+		myLastSeenSampleRate(-1), 
+		myLastSeenChannelConfig(-1)
+	{
+		myLastTimeWindowSizeChanged = std::chrono::system_clock::now() - std::chrono::hours(1);
 	}
 
 	static GUID g_get_guid() {
@@ -32,6 +35,7 @@ public:
 
 	static void g_get_name(pfc::string_base & p_out) { p_out = "Paulstretch DSP"; }
 
+
 	bool on_chunk(audio_chunk * chunk, abort_callback &) {
 
 		if (!enabled)
@@ -41,19 +45,71 @@ public:
 		// variable usage is fresh.
 		//
 		remember_state(chunk);
-
-		size_t data_length = chunk->get_used_size();
-		audio_sample* the_data = chunk->get_data();
-		for (size_t i = 0; i < data_length; i++)
-			myQueue.push_back(the_data[i]);
-
-		size_t window_size_in_samples = get_window_size_in_samples(myLastSeenWindowSize, myLastSeenSampleRate);
-		if (myQueue.size() >= sampleCountRequiredForStretch(window_size_in_samples, myLastSeenNumberOfChannels))
-			handle_stretch(myLastSeenWindowSize, stretch_amount, myLastSeenNumberOfChannels, myLastSeenSampleRate, myLastSeenChannelConfig);
-
+		splitAndFeed(chunk);
+		while(canStretch())
+			stretch(stretch_amount);
+		
 		// We need to buffer chunks on our own, so drop everything.
 		//
 		return false;
+	}
+
+	bool canStretch()
+	{
+		return !myPaulstretch.empty() && canAllStep();
+	}
+
+	void stretch(const float stretch_amount)
+	{
+		std::vector<AudioBuffer*> output(myLastSeenNumberOfChannels);
+		for (size_t i = 0; i < myLastSeenNumberOfChannels; i++) 
+			output[i] = myPaulstretch[i].step(stretch_amount);
+		if (!output.empty() && !output[0]->empty())
+			combineAndOutput(output);
+	}
+
+	bool canAllStep()
+	{
+		if (myPaulstretch.size() == 0)
+			return false;
+
+		bool result = true;
+		for (size_t i = 0; i < myPaulstretch.size() && i < myLastSeenNumberOfChannels; i++)
+			result = result && myPaulstretch[i].canStep();
+		return result;
+	}
+
+	void combineAndOutput(const std::vector<AudioBuffer*>& results)
+	{
+		audio_chunk* new_chunk = insert_chunk();
+		size_t result_size = results[0]->size() * results.size();
+		std::unique_ptr<audio_sample[]> new_audio_sample(new audio_sample[result_size]);
+		for (size_t i = 0; i < results[0]->size(); i++) {
+			for (size_t j = 0; j < myLastSeenNumberOfChannels; j++)
+				new_audio_sample[i * myLastSeenNumberOfChannels + j] = results[j]->get(i);
+		}
+
+		// does a deep copy of audio samples, so we retain ownership of pointer.
+		//
+		new_chunk->set_data(new_audio_sample.get(), results[0]->size(),
+			myLastSeenNumberOfChannels, myLastSeenSampleRate, myLastSeenChannelConfig);
+	}
+
+	void splitAndFeed(audio_chunk* chunk)
+	{
+		size_t data_length = chunk->get_used_size();
+		audio_sample* the_data = chunk->get_data();
+		for (size_t i = 0; i < data_length / myLastSeenNumberOfChannels; i++)
+		{
+			for (size_t j = 0; j < myLastSeenNumberOfChannels; j++)
+			{
+				size_t index = i * myLastSeenNumberOfChannels + j;
+				if (index >= data_length)
+					break;
+
+				myPaulstretch[j].feed(the_data[index]);
+			}
+		}
 	}
 
 	void remember_state(audio_chunk* chunk)
@@ -68,7 +124,16 @@ public:
 			if (duration > std::chrono::seconds(1)) {
 				myLastSeenWindowSize = window_size;
 				myLastTimeWindowSizeChanged = current_time_point;
+				resizePaulstretch(chunk, chunk->get_channels(), window_size);
 			}
+		}
+		if (myLastSeenNumberOfChannels != chunk->get_channels())
+		{
+			resizePaulstretch(chunk, chunk->get_channels(), window_size);
+		}
+		else if (myLastSeenSampleRate != chunk->get_sample_rate())
+		{
+			resizePaulstretch(chunk, chunk->get_channels(), window_size);
 		}
 
 		myLastSeenNumberOfChannels = chunk->get_channels();
@@ -76,84 +141,14 @@ public:
 		myLastSeenChannelConfig = chunk->get_channel_config();
 	}
 
-	void handle_stretch(float window_size_in_seconds, float stretch_rate, size_t n_channels, unsigned int s_rate, unsigned int channel_config)
+	void resizePaulstretch(audio_chunk* chunk, size_t n_channels, const float window_size)
 	{
-		// Window size sample per channel.
-		//
-		std::unique_ptr<sample_vector<audio_sample>[]> samples(new sample_vector<audio_sample>[n_channels]);
-		size_t window_size_samples = get_window_size_in_samples(window_size_in_seconds, s_rate);
-		while (myQueue.size() >= sampleCountRequiredForStretch(window_size_samples, n_channels))
-		{
-			for (size_t i = 0; i < n_channels; i++)
-				samples[i] = sample_vector<audio_sample>(window_size_samples);
-
-			// channels are identified in the sample modulo 'n_channels'
-			//
-			for (size_t i = 0; i < window_size_samples; i++) 
-				for (size_t channel = 0; channel < n_channels; channel++) 
-					samples[channel][i] = myQueue[n_channels * i + channel];
-
-			// stretch each sample
-			//
-			std::vector<sample_vector<audio_sample>> results;
-			for (size_t i = 0; i < n_channels; i++) {
-				samples[i] = paulstretch::stateless_stretch(stretch_rate, samples[i]);
-				results.push_back(paulstretch::combine_windows(window_size_samples, myPreviousWindows[i], samples[i]));
-				myPreviousWindows[i] = samples[i];
-			}
-
-
-			// insert it into the chunk stream
-			//
-			audio_chunk* new_chunk = insert_chunk();
-			std::unique_ptr<audio_sample[]> new_audio_sample(new audio_sample[results[0].get_size() * n_channels]);
-			for (size_t i = 0; i < results[0].get_size(); i++) {
-				for (size_t j = 0; j < n_channels; j++)
-					new_audio_sample[i * n_channels + j] = results[j][i];
-			}
-
-			// does a deep copy of audio samples, so we retain ownership of pointer.
-			//
-			new_chunk->set_data(new_audio_sample.get(), results[0].get_size(),
-				n_channels, s_rate, channel_config);
-
-			// now remove stepsize from circular buffer (half the window size typically)
-			//
-			// Note, to avoid infinite loops, it must be that we take at least one step in the sample:
-			//
-			//		(window_size_in_samples / 2.0f) / stretch_rate >= 1
-			//
-			// meaning:
-			//
-			//		window_size_in_samples >= 2 * stretch_rate
-			//
-			// When this does not happen, we will enforce a step of one.
-			//
-			size_t step = static_cast<size_t>(paulstretch::step_size(window_size_samples, stretch_rate) * n_channels);
-			
-			// We must make sure the step is a multiple of the channel size. If not, the imagine we have
-			// two channels. If the step is odd, we will start the next loop with the first
-			// sample belonging to the second channel, the next we will start with the
-			// first sample from the first channel, etc... This was the cause of the annoying
-			// "warbling" effect!
-			//
-			step = max(n_channels, (step / n_channels) * n_channels);
-			for (size_t i = 0; i < step; i++) {
-				if (myQueue.empty())
-					break; // shouldn't happen, but we'll check anyhow.
-				myQueue.pop_front();
-			}
-		}
-	}
-
-	static size_t get_window_size_in_samples(float window_size_in_seconds, size_t sample_rate)
-	{
-		return paulstretch::required_sample_size(window_size_in_seconds, sample_rate);
-	}
-
-	static size_t sampleCountRequiredForStretch(size_t window_size_samples, size_t n_channels)
-	{
-		return window_size_samples * n_channels;
+		while (myPaulstretch.size() > n_channels)
+			myPaulstretch.pop_back();
+		while (myPaulstretch.size() < n_channels)
+			myPaulstretch.push_back(NewPaulstretch(window_size, chunk->get_sample_rate()));
+		for (size_t i = 0; i < myPaulstretch.size(); i++)
+			myPaulstretch[i].resize(window_size, chunk->get_sample_rate());
 	}
 
 	void on_endofplayback(abort_callback &) {}
@@ -165,21 +160,26 @@ public:
 		// For paulstretch, we need to pad with 0s for the last window to process.  We pad just enough
 		// to trigger one more stretch chunk to be inserted.
 		//
-		size_t window_size_in_samples = get_window_size_in_samples(myLastSeenWindowSize, myLastSeenSampleRate);
-		while (myQueue.size() < sampleCountRequiredForStretch(window_size_in_samples, myLastSeenNumberOfChannels))
-			myQueue.push_back(0);
-		handle_stretch(myLastSeenWindowSize, stretch_amount, myLastSeenNumberOfChannels, myLastSeenSampleRate, myLastSeenChannelConfig);
+		float stretchAmount = stretch_amount;
+		for (size_t i = 0; i < myPaulstretch.size(); i++)
+		{
+			while (!myPaulstretch[i].canStep())
+				myPaulstretch[i].feed(0.0f);
+		}
+		stretch(stretchAmount);
 	}
 
 	// If you have any audio data buffered, you should drop it immediately and reset the DSP to a freshly initialized state.
 	// Called after a seek etc.
 	//
 	void flush() {
-		// We could flush, but I don't think it has a bad effect on the playback, so why mess with any allocated memory.
+		// We could flush, but I think the gradual fade introduced by not doing so sounds nice.
 	}
 
 	double get_latency() {
 		// If the DSP buffers some amount of audio data, it should return the duration of buffered data (in seconds) here.
+		if(enabled)
+			return myLastSeenWindowSize;	// rough estimate
 		return 0;
 	}
 
@@ -200,8 +200,7 @@ private:
 	size_t myLastSeenChannelConfig;
 
 	std::chrono::system_clock::time_point myLastTimeWindowSizeChanged;
-	std::vector<sample_vector<audio_sample>> myPreviousWindows;
-	std::deque<audio_sample> myQueue;
+	std::vector<NewPaulstretch> myPaulstretch;
 };
 
 float dsp_paulstretch::stretch_amount = 4.0f;

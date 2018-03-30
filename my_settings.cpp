@@ -36,16 +36,16 @@ public:
 
 	void get_name(t_uint32 p_index, pfc::string_base & p_out) {
 		switch (p_index) {
-		case cmd_stretch_settings: p_out = "Paulstretch Settings"; break;
-		case cmd_stretch_enable: p_out = "Enable Paulstretch Toggle"; break;
+		case cmd_stretch_settings: p_out = "Paulstretch settings"; break;
+		case cmd_stretch_enable: p_out = "Toggle Paulstretch"; break;
 		default: uBugCheck();
 		}
 	}
 
 	bool get_description(t_uint32 p_index, pfc::string_base & p_out) {
 		switch (p_index) {
-		case cmd_stretch_settings: p_out = "Set commands for Paulstretch."; return true;
-		case cmd_stretch_enable: p_out = "Toggle to enable/disable Paulstretch (for keyboard shortcuts)."; return true;
+		case cmd_stretch_settings: p_out = "Display Paulstretch settings"; return true;
+		case cmd_stretch_enable: p_out = "Toggle Paulstretch"; return true;
 		default: uBugCheck();
 		}
 	}

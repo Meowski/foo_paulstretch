@@ -130,7 +130,14 @@ public:
 			// When this does not happen, we will enforce a step of one.
 			//
 			size_t step = static_cast<size_t>(paulstretch::step_size(window_size_samples, stretch_rate) * n_channels);
-			step = max(1, step);
+			
+			// We must make sure the step is a multiple of the channel size. If not, the imagine we have
+			// two channels. If the step is odd, we will start the next loop with the first
+			// sample belonging to the second channel, the next we will start with the
+			// first sample from the first channel, etc... This was the cause of the annoying
+			// "warbling" effect!
+			//
+			step = max(n_channels, (step / n_channels) * n_channels);
 			for (size_t i = 0; i < step; i++) {
 				if (myQueue.empty())
 					break; // shouldn't happen, but we'll check anyhow.

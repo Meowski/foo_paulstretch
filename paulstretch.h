@@ -1,9 +1,12 @@
 #pragma once
-#include "stdafx.h"
+#ifndef PAULSTRETCH_H
+#define PAULSTRETCH_H
+
+	
+#include "../SDK/foobar2000.h"
 #include <complex>
 #include <random>
 #include <chrono>
-#include "kissfft/kiss_fftr.h"
 #include <memory>
 #include <queue>
 
@@ -43,7 +46,7 @@ public:
 		other.mySize = 0;
 	}
 
-	AudioBuffer& operator=(AudioBuffer& other)
+	AudioBuffer& operator=(const AudioBuffer& other)
 	{
 		if (this == &other)
 			return *this;
@@ -201,6 +204,14 @@ public:
 	{
 		return mySize <= 0;
 	}
+
+	/**
+	 * \brief sets all bits to zero.
+	 */
+	void clear()
+	{
+		multiply(0);
+	}
 };
 
 class NewPaulstretch
@@ -232,8 +243,8 @@ public:
 		myAccumulatedSteps(0)
 	{
 		myWindowSizeInSamples = this->requiredSampleSize(windowSizeInSeconds, sampleRate);
-		for (int i = 0; i < 2; i++)
-			myBuffers[i] = AudioBuffer(myWindowSizeInSamples);
+		for (auto& myBuffer : myBuffers)
+			myBuffer = AudioBuffer(myWindowSizeInSamples);
 		myCurPointer = 0;
 		myWindow = AudioBuffer(myWindowSizeInSamples);
 		myOutput = AudioBuffer(myWindowSizeInSamples / 2);
@@ -256,6 +267,7 @@ public:
 		myKissFFTInputBuffer = nullptr;
 		myKissFFTInverseBuffer = nullptr;
 		myAccumulatedSteps = 0;
+		myBufferedSamples.clear();
 		setupWindow();
 	}
 
@@ -282,12 +294,28 @@ public:
 			return &myOutput;
 
 		myAccumulatedSteps += stepSize(myWindowSizeInSamples, stretch_amount);
-		for (; myAccumulatedSteps >= 1.0f && !myBufferedSamples.empty(); --myAccumulatedSteps)
-			myBufferedSamples.pop_front();
+		size_t intSteps = static_cast<size_t>(floor(myAccumulatedSteps));
+		size_t elementsToRemove = min(myBufferedSamples.size(), intSteps);
+		myBufferedSamples.erase(myBufferedSamples.begin(), myBufferedSamples.begin() + elementsToRemove);
+		myAccumulatedSteps -= elementsToRemove;
 
 		combineWindows();
 		myCurPointer = 1 - myCurPointer;
 		return &myOutput;
+	}
+
+	size_t finalStretchesRequired(float stretchAmount)
+	{
+		if (myBufferedSamples.empty())
+			return 0;
+		return static_cast<size_t>(ceil(myBufferedSamples.size() / stepSize(myWindowSizeInSamples, stretchAmount)));
+	}
+
+	void flush()
+	{
+		myBuffers[0].clear();
+		myBuffers[1].clear();
+		myBufferedSamples.clear();
 	}
 
 private:
@@ -343,56 +371,16 @@ private:
 	void combineWindows();
 };
 
-class paulstretch
+inline void NewPaulstretch::combineWindows()
 {
-public:
-
-	static float step_size(size_t window_size_in_samples, float stretch_rate)
-	{
-		return (window_size_in_samples / 2.0f) / stretch_rate;
-	}
-
-	static size_t required_sample_size(float window_size_in_seconds, size_t sample_rate)
-	{
-		size_t size_in_samples = static_cast<size_t>(window_size_in_seconds * sample_rate);
-		size_in_samples = max(size_in_samples, 16);
-		return optimize_windowsize(size_in_samples);
-	}
-
-
-private:
-
-	static size_t optimize_windowsize(size_t windowsize_in_samples)
-	{
-		size_t original_size = windowsize_in_samples;
-		while (true)
-		{
-			windowsize_in_samples = original_size;
-			while (windowsize_in_samples % 2 == 0)
-				windowsize_in_samples /= 2;
-			while (windowsize_in_samples % 3 == 0)
-				windowsize_in_samples /= 3;
-			while (windowsize_in_samples % 5 == 0)
-				windowsize_in_samples /= 5;
-
-			if (windowsize_in_samples < 2)
-				break;
-			original_size++;
-		}
-		return (original_size / 2) * 2; // ensure result is even.
-	}
-};
-
-void NewPaulstretch::combineWindows()
-{
-	size_t half_window_size = myOutput.size();
+	const size_t half_window_size = myOutput.size();
 	for (size_t i = 0; i < half_window_size; i++)
 		myOutput[i] = myBuffers[1 - myCurPointer].get(i + half_window_size) + myBuffers[myCurPointer].get(i);
 }
 
 // Note: kiss_fftr scales by nfft/2 while kiss_fftri scales by 2
 //
-AudioBuffer* NewPaulstretch::stretch()
+inline AudioBuffer* NewPaulstretch::stretch()
 {
 	
 	myBuffers[myCurPointer].multiply(myWindow);;
@@ -440,4 +428,6 @@ AudioBuffer* NewPaulstretch::stretch()
 		myBuffers[myCurPointer].set(i, myBuffers[myCurPointer].get(i) * myWindow[i] / myWindowSizeInSamples);
 
 	return &myBuffers[myCurPointer];
-}						 
+}
+
+#endif

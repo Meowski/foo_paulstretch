@@ -1,31 +1,36 @@
 #pragma once
-#include "stdafx.h"
-#include "resource.h"
+#ifndef PAULSTRETCHDSP_H
+#define PAULSTRETCHDSP_H
+
+
+#include "../SDK/foobar2000.h"
 #include "paulstretch.h"
 #include <queue>
 #include <chrono>
-#include <iostream>
-
+#include "paulstretchPreset.h"
+#include "CMysettingsDialog.h"
 
 class dsp_paulstretch : public dsp_impl_base
 {
 public:
-	static float stretch_amount;
-	static float gain_amount;
-	static float window_size;
-	static bool enabled;
 
-	dsp_paulstretch() :
+	dsp_paulstretch(const dsp_preset& preset) :
 		myLastSeenNumberOfChannels(-1), 
 		myLastSeenSampleRate(-1), 
-		myLastSeenChannelConfig(-1)
+		myLastSeenChannelConfig(-1),
+		myPaulstretchPreset()
 	{
 		myLastTimeWindowSizeChanged = std::chrono::system_clock::now() - std::chrono::hours(1);
+		if (!readPreset(preset))
+			pfc::outputDebugLine("Failed to read preset - paulstretchDSP.h constructor.");
 	}
 
 	static GUID g_get_guid() {
-		static const GUID guid = { 0x5efad0c, 0x7322, 0x40ce,{ 0x94, 0x8e, 0xfe, 0x82, 0xba, 0x67, 0x1, 0x72 } };
-		return guid;
+		return paulstretchPreset::getGUID();
+	}
+
+	static bool g_have_config_popup() {
+		return true;
 	}
 
 	GUID get_owner()
@@ -35,10 +40,28 @@ public:
 
 	static void g_get_name(pfc::string_base & p_out) { p_out = "Paulstretch DSP"; }
 
+	static bool g_get_default_preset(dsp_preset & preset)
+	{
+		paulstretchPreset paulstretchPreset;
+		paulstretchPreset.writeData(preset);
+
+		return true;
+	}
+
+	static void g_show_config_popup(const dsp_preset & p_data, HWND p_parent, dsp_preset_edit_callback & p_callback)
+	{
+		std::function<void(paulstretchPreset)> lambda = [&](paulstretchPreset data) -> void {
+			dsp_preset_impl newPreset;
+			data.writeData(newPreset);
+			p_callback.on_preset_changed(newPreset);
+		};
+		CMySettingsDialog myDialog(p_data, lambda);
+		myDialog.DoModal(p_parent);
+	}
 
 	bool on_chunk(audio_chunk * chunk, abort_callback &) {
 
-		if (!enabled)
+		if (!myPaulstretchPreset.enabled())
 			return true;
 
 		// All state required to do paulstretch is saved after this call, so all 'myLastSeen...' 
@@ -47,7 +70,7 @@ public:
 		remember_state(chunk);
 		splitAndFeed(chunk);
 		while(canStretch())
-			stretch(stretch_amount);
+			stretch(myPaulstretchPreset.stretchAmount());
 		
 		// We need to buffer chunks on our own, so drop everything.
 		//
@@ -70,7 +93,7 @@ public:
 
 	bool canAllStep()
 	{
-		if (myPaulstretch.size() == 0)
+		if (myLastSeenNumberOfChannels <= 0 || myLastSeenNumberOfChannels != myPaulstretch.size())
 			return false;
 
 		bool result = true;
@@ -117,23 +140,23 @@ public:
 		// We only want to change our window size periodically. Otherwise we really hammer memory with
 		// allocations.
 		//
-		if (myLastSeenWindowSize != window_size)
+		if (myLastSeenWindowSize != myPaulstretchPreset.windowSize())
 		{
 			std::chrono::system_clock::time_point current_time_point = std::chrono::system_clock::now();
 			auto duration = current_time_point - myLastTimeWindowSizeChanged;
 			if (duration > std::chrono::seconds(1)) {
-				myLastSeenWindowSize = window_size;
+				myLastSeenWindowSize = myPaulstretchPreset.windowSize();
 				myLastTimeWindowSizeChanged = current_time_point;
-				resizePaulstretch(chunk, chunk->get_channels(), window_size);
+				resizePaulstretch(chunk, chunk->get_channels(), myPaulstretchPreset.windowSize());
 			}
 		}
 		if (myLastSeenNumberOfChannels != chunk->get_channels())
 		{
-			resizePaulstretch(chunk, chunk->get_channels(), window_size);
+			resizePaulstretch(chunk, chunk->get_channels(), myPaulstretchPreset.windowSize());
 		}
 		else if (myLastSeenSampleRate != chunk->get_sample_rate())
 		{
-			resizePaulstretch(chunk, chunk->get_channels(), window_size);
+			resizePaulstretch(chunk, chunk->get_channels(), myPaulstretchPreset.windowSize());
 		}
 
 		myLastSeenNumberOfChannels = chunk->get_channels();
@@ -151,22 +174,35 @@ public:
 			myPaulstretch[i].resize(window_size, chunk->get_sample_rate());
 	}
 
-	void on_endofplayback(abort_callback &) {}
+	void on_endofplayback(abort_callback & callback)
+	{
+		on_endoftrack(callback);
+	}
+
 	void on_endoftrack(abort_callback &) {
 
-		if (!enabled)
+		if (!myPaulstretchPreset.enabled())
+			return;
+		if (myPaulstretch.empty())
 			return;
 
-		// For paulstretch, we need to pad with 0s for the last window to process.  We pad just enough
-		// to trigger one more stretch chunk to be inserted.
-		//
-		float stretchAmount = stretch_amount;
-		for (size_t i = 0; i < myPaulstretch.size(); i++)
-		{
-			while (!myPaulstretch[i].canStep())
-				myPaulstretch[i].feed(0.0f);
+		// For paulstretch, we need to pad with 0s for the last window to process.
+		// How much padding we need depends on how much data we are buffering.
+		//					 
+		float stretchAmount = myPaulstretchPreset.stretchAmount();
+		size_t numRequiredStretches = myPaulstretch[0].finalStretchesRequired(stretchAmount);
+
+		for (size_t numStretches = 0; numStretches < numRequiredStretches; numStretches++) {
+			for (size_t i = 0; i < myPaulstretch.size(); i++)
+			{
+				while (!myPaulstretch[i].canStep())
+					myPaulstretch[i].feed(0.0f);
+			}
+			stretch(stretchAmount);
 		}
-		stretch(stretchAmount);
+
+		for (size_t i = 0; i < myPaulstretch.size(); i++)
+			myPaulstretch[i].flush();
 	}
 
 	// If you have any audio data buffered, you should drop it immediately and reset the DSP to a freshly initialized state.
@@ -178,7 +214,7 @@ public:
 
 	double get_latency() {
 		// If the DSP buffers some amount of audio data, it should return the duration of buffered data (in seconds) here.
-		if(enabled)
+		if(myPaulstretchPreset.enabled())
 			return myLastSeenWindowSize;	// rough estimate
 		return 0;
 	}
@@ -194,18 +230,23 @@ public:
 
 private:
 
+	bool readPreset(const dsp_preset& preset)
+	{
+		paulstretchPreset paulstretchPreset;
+		if (!paulstretchPreset.readData(preset))
+			return false;
+		myPaulstretchPreset = paulstretchPreset;
+		return true;
+	}
+	
 	float myLastSeenWindowSize;
 	size_t myLastSeenNumberOfChannels;
 	size_t myLastSeenSampleRate;
 	size_t myLastSeenChannelConfig;
+	paulstretchPreset myPaulstretchPreset;
 
 	std::chrono::system_clock::time_point myLastTimeWindowSizeChanged;
 	std::vector<NewPaulstretch> myPaulstretch;
 };
 
-float dsp_paulstretch::stretch_amount = 4.0f;
-float dsp_paulstretch::window_size = 0.28f;
-bool dsp_paulstretch::enabled = false;
-
-// Use dsp_factory_nopreset_t<> instead of dsp_factory_t<> if your DSP does not provide preset/configuration functionality.
-static dsp_factory_nopreset_t<dsp_paulstretch> g_dsp_sample_factory;
+#endif

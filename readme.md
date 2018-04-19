@@ -8,19 +8,21 @@ Copy the foo_paulstretch.dll file from the binary folder in this repository into
 
 ## Usage
 
-First, enable the Paulstretch DSP under Preferences > DSP Manager in foobar2000. Then, under the Playback menu is a paulstretch item. 
-Settings for the stretch amount, window sampling size, and enabling/disabling during playback are there. These settings are reset to 
-default settings each time foobar2000 is started. 
+1. Move the Paulstretch DSP from the "Available DSPs" to the "Active DSPs" list under File > Preferences > Playback > DSP Manager.
+2. Alter settings as desired either  in DSP Manager using "configure selected" or under Playback > Paulstretch Settings in the main window.
+3. In the settings dialog, check the "enabled" mark to turn it on.
+4. You can also toggle paulstretch on and off under Playback > Paulstretch Toggle.
 
-I recommend creating a keyboard shortcut for quick access.
+
+The reason for having the toggle and settings menus under Playback is to allow for
+keyboard shortcuts to be set. If there is a better way to do this I'd love to know. 
 
 ## Notes
 
 The source code depends on the foobar2000 sdk, the WTL library, and kissFFT. The algorithm is based on the python implementation 
-provided by the creator of paulstretch on [github](https://github.com/paulnasca/paulstretch_python).
+right [here](https://github.com/paulnasca/paulstretch_python) on github provided by the creator of paulstretch.
 
 ## Troubleshooting
 
-The component was developed in visual studio community 2015 update 3, so you may need to install the Visual C++ 2015 redistributable 
-separately. Also, as I only have stereo playback, only two channel playback was tested explicitly, though up to 64 channels should 
-theoretically be supported.
+The component was developed in Visual Studio Community 2017, so you may need to install the Microsoft Visual C++ 2017 redistributable 
+separately.

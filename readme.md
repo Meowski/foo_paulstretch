@@ -19,7 +19,7 @@ keyboard shortcuts to be set. If there is a better way to do this I'd love to kn
 
 ## Notes
 
-The source code depends on the foobar2000 sdk, the WTL library, and kissFFT. The algorithm is based on the python implementation 
+The source code depends on the foobar2000 v1.3 SDK, the WTL library, and kissFFT. The algorithm is based on the python implementation 
 right [here](https://github.com/paulnasca/paulstretch_python) on github provided by the creator of paulstretch.
 
 ## Troubleshooting

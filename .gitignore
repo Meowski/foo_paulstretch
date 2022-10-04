@@ -1,8 +1,8 @@
-*.sln
-*.vcxproj
-old_git.git/
-test/
-
+foobar2000-Debug/*
+!foobar2000-Debug/readme.txt
+foobar2000-x64-Debug/*
+!foobar2000-x64-Debug/readme.txt
+WTL/
 
 
 ## Ignore Visual Studio temporary files, build results, and
@@ -15,12 +15,13 @@ test/
 *.user
 *.userosscache
 *.sln.docstates
-*.vcxproj.filters
+# *.vcxproj.filters
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
 # Build results
+ARM64/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/

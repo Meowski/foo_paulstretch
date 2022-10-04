@@ -1,26 +1,15 @@
-#pragma once
-#ifndef PAULSTRETCH_H
-#define PAULSTRETCH_H
+#pragma once	
 
-	
-#include "../SDK/foobar2000.h"
+#include <SDK/foobar2000.h>
 #include <complex>
 #include <random>
 #include <chrono>
 #include <memory>
 #include <queue>
 
-extern "C"
-{
-#include "kissfft/kiss_fftr.h"
-}
+#include <kissfft/kissfft.hh>
 
-#define PI 3.1415926f
-
-struct free_wrapper
-{
-	void operator()(void* x) { kiss_fftr_free(x); }
-};
+constexpr auto PI = 3.14159265358979323846264338327;
 
 class AudioBuffer
 {
@@ -30,7 +19,7 @@ private:
 public:
 	AudioBuffer(const AudioBuffer& other)
 		: mySize(other.mySize)
-	{											
+	{
 		if (other.myValues != nullptr)
 		{
 			myValues = std::unique_ptr<audio_sample[]>(new audio_sample[mySize]);
@@ -139,7 +128,7 @@ public:
 		add(0.5f);
 	}
 
-	void apply(audio_sample(*foo_ptr)(audio_sample)) 
+	void apply(audio_sample(*foo_ptr)(audio_sample))
 	{
 		for (size_t i = 0; i < mySize; i++)
 		{
@@ -223,12 +212,12 @@ private:
 	AudioBuffer myWindow;
 	AudioBuffer myOutput;
 	int myCurPointer;
-	std::uniform_real_distribution<float> myRand;
+	std::uniform_real_distribution<double> myRand;
 	std::default_random_engine myGenerator;
-	std::unique_ptr<kiss_fftr_state, free_wrapper> myKissFFTInputBuffer;
-	std::unique_ptr<kiss_fftr_state, free_wrapper> myKissFFTInverseBuffer;
-	float myAccumulatedSteps;	   
-						  
+	kissfft<audio_sample> myKissFFTR;
+	kissfft<audio_sample> myKissFFTRI;
+	float myAccumulatedSteps;
+
 public:
 	NewPaulstretch(const NewPaulstretch& other) = delete;
 	NewPaulstretch& operator=(const NewPaulstretch& other) = delete;
@@ -237,12 +226,12 @@ public:
 	explicit NewPaulstretch(const float windowSizeInSeconds, const size_t sampleRate) :
 		myBufferedSamples(),
 		myRand(0, 2 * PI),
+		myWindowSizeInSamples(requiredSampleSize(windowSizeInSeconds, sampleRate)),
+		myKissFFTR(myWindowSizeInSamples >> 1, false),
+		myKissFFTRI(myWindowSizeInSamples >> 1, true),
 		myGenerator(static_cast<size_t>(std::chrono::system_clock::now().time_since_epoch().count())),
-		myKissFFTInputBuffer(nullptr),
-		myKissFFTInverseBuffer(nullptr),
 		myAccumulatedSteps(0)
 	{
-		myWindowSizeInSamples = this->requiredSampleSize(windowSizeInSeconds, sampleRate);
 		for (auto& myBuffer : myBuffers)
 			myBuffer = AudioBuffer(myWindowSizeInSamples);
 		myCurPointer = 0;
@@ -254,6 +243,8 @@ public:
 	void resize(const float windowSizeInSeconds, const size_t sampleRate)
 	{
 		myWindowSizeInSamples = this->requiredSampleSize(windowSizeInSeconds, sampleRate);
+		myKissFFTR = kissfft<audio_sample>(myWindowSizeInSamples >> 1, false);
+		myKissFFTRI = kissfft<audio_sample>(myWindowSizeInSamples >> 1, true);
 		AudioBuffer newBuffers[2];
 		for (int i = 0; i < 2; i++)
 			newBuffers[i] = AudioBuffer(myWindowSizeInSamples);
@@ -264,8 +255,6 @@ public:
 		myBuffers[1] = newBuffers[1];
 		myWindow = AudioBuffer(myWindowSizeInSamples);
 		myOutput = AudioBuffer(myWindowSizeInSamples / 2);
-		myKissFFTInputBuffer = nullptr;
-		myKissFFTInverseBuffer = nullptr;
 		myAccumulatedSteps = 0;
 		myBufferedSamples.clear();
 		setupWindow();
@@ -281,9 +270,19 @@ public:
 		return myWindowSizeInSamples <= myBufferedSamples.size();
 	}
 
-	int numSamplesRequiredForStep() const
+	size_t numSamplesRequiredForStep() const
 	{
-		return max(0, (int)myWindowSizeInSamples - myBufferedSamples.size());
+		return max(0, myWindowSizeInSamples - myBufferedSamples.size());
+	}
+
+	size_t numBufferedSamples() {
+		return myBufferedSamples.size();
+	}
+
+	void feedUntilStep(audio_sample sample) {
+		size_t req = numSamplesRequiredForStep();
+		for (size_t i = 0; i < req; ++i)
+			myBufferedSamples.push_back(sample);
 	}
 
 	AudioBuffer* step(const float stretch_amount)
@@ -382,52 +381,26 @@ inline void NewPaulstretch::combineWindows()
 //
 inline AudioBuffer* NewPaulstretch::stretch()
 {
-	
+
 	myBuffers[myCurPointer].multiply(myWindow);;
 
-	if (myKissFFTInputBuffer == nullptr)
-	{
-		kiss_fftr_cfg cfg_fft = kiss_fftr_alloc(myWindowSizeInSamples, 0, 0, 0);
-		if (cfg_fft == NULL)
-			return nullptr;
-		myKissFFTInputBuffer = std::unique_ptr<kiss_fftr_state, free_wrapper>(cfg_fft);
-	}
-	if (myKissFFTInverseBuffer == nullptr)
-	{
-		kiss_fftr_cfg cfg_ffti = kiss_fftr_alloc(myWindowSizeInSamples, 1, 0, 0);
-		if (cfg_ffti == NULL)
-			return nullptr;
-		myKissFFTInverseBuffer = std::unique_ptr<kiss_fftr_state, free_wrapper>(cfg_ffti);
-	}
-
 	size_t numFreq = (myWindowSizeInSamples / 2) + 1;
-	std::unique_ptr<kiss_fft_cpx[]> output_freq(new kiss_fft_cpx[numFreq]);
+	std::vector<std::complex<audio_sample>> frequencies(numFreq);
+	myKissFFTR.transform_real(myBuffers[myCurPointer].getArrayPointer(), frequencies.data());
+	frequencies[numFreq - 1] = std::complex<audio_sample>(frequencies[0].imag(), 0);
+	frequencies[0].imag(0);
 
-	kiss_fftr(myKissFFTInputBuffer.get(), myBuffers[myCurPointer].getArrayPointer(), output_freq.get());
-
-	std::vector<std::complex<audio_sample>> complex_result(numFreq);
 	for (size_t i = 0; i < numFreq; i++)
 	{
-		complex_result[i] = std::complex<double>(output_freq[i].r, output_freq[i].i);
-		complex_result[i] = abs(complex_result[i]);
+		frequencies[i] = abs(frequencies[i]);
 		std::complex<audio_sample> random_complex = std::complex<audio_sample>(myRand(myGenerator), 0) * std::complex<audio_sample>(0, 1);
-		complex_result[i] *= exp(random_complex);
+		frequencies[i] *= exp(random_complex);
 	}
 
-	// do inverse transform
-	//
-	for (size_t i = 0; i < numFreq; i++)
-	{
-		output_freq[i].r = complex_result[i].real();
-		output_freq[i].i = complex_result[i].imag();
-	}
-
-	kiss_fftri(myKissFFTInverseBuffer.get(), output_freq.get(), myBuffers[myCurPointer].getArrayPointer());
+	myKissFFTRI.transform_real_inverse(frequencies.data(), myBuffers[myCurPointer].getArrayPointer());
 
 	for (size_t i = 0; i < myWindowSizeInSamples; i++)
 		myBuffers[myCurPointer].set(i, myBuffers[myCurPointer].get(i) * myWindow[i] / myWindowSizeInSamples);
 
 	return &myBuffers[myCurPointer];
 }
-
-#endif

@@ -42,7 +42,7 @@ class kissfft
             const std::size_t N = _nfft;
             _superTwiddles.resize(N / 2);
             for (std::size_t i = 0; i < N / 2; i++) {
-                const scalar_t phase = -pi * (((double)(i + 1) / N) + 0.5) * (_inverse ? -1 : 1);
+                const scalar_t phase = -pi * (((scalar_t)(i + 1) / N) + (scalar_t)0.5) * (_inverse ? -1 : 1);
                 _superTwiddles[i] = std::exp(cpx_t(0, phase));
             }
 
@@ -250,7 +250,7 @@ class kissfft
         void kf_bfly4( cpx_t * const Fout, const std::size_t fstride, const std::size_t m) const
         {
             cpx_t scratch[7];
-            const scalar_t negative_if_inverse = _inverse ? -1 : +1;
+            const scalar_t negative_if_inverse = (scalar_t)(_inverse ? -1 : +1);
             for (std::size_t k=0;k<m;++k) {
                 scratch[0] = Fout[k+  m] * _twiddles[k*fstride  ];
                 scratch[1] = Fout[k+2*m] * _twiddles[k*fstride*2];

@@ -36,6 +36,24 @@
     <ClInclude Include="paulstretch_dialog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="dumb_fraction.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="third-party\kissfft\kissfft.hh">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="layout_types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dialog_wrapper_helpers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="third-party\SDK\enabled_callback.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="foo_paulstretch.rc">

@@ -110,7 +110,15 @@ namespace pauldsp {
 
 	public:
 		virtual Area getDesiredArea(const CPaintDC* dc, HWND dialog_hwnd) = 0;
-		virtual void move(int x, int y, int width, int height) = 0;
+		virtual HWND getHWND() = 0;
+		virtual HDWP move(HDWP hdwp, int x, int y, int width, int height)
+		{
+			if (hdwp == NULL)
+				return NULL;
+
+			auto FLAGS = SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS;
+			return DeferWindowPos(hdwp, getHWND(), NULL, x, y, width, height, FLAGS);
+		}
 
 		int getFlex()
 		{
@@ -141,9 +149,9 @@ namespace pauldsp {
 			return Area(s.right + myPadding.leftRight(), s.bottom + myPadding.topBottom());
 		}
 
-		void move(int x, int y, int width, int height) override
+		HWND getHWND() override
 		{
-			MoveWindow(myText.m_hWnd, x, y, width, height, false);
+			return myText.m_hWnd;
 		}
 	};
 
@@ -157,7 +165,7 @@ namespace pauldsp {
 		Area getDesiredArea(const CPaintDC* dc, HWND dialog_hwnd) override
 		{
 			CString out;
-			out.Append(L"00000000");
+			out.Append(L"0.001XXX");
 
 			RECT s{ 0, 0, 0, 0 };
 			DrawText(dc->m_hDC, out, out.GetLength(), &s, DT_CALCRECT);
@@ -165,9 +173,9 @@ namespace pauldsp {
 			return Area(s.right + myPadding.leftRight(), s.bottom + myPadding.topBottom());
 		}
 
-		void move(int x, int y, int width, int height) override
+		HWND getHWND() override
 		{
-			MoveWindow(myCombo.m_hWnd, x, y, width, height, false);
+			return myCombo.m_hWnd;
 		}
 	};
 
@@ -192,11 +200,16 @@ namespace pauldsp {
 			return Area(s.right + myPadding.leftRight(), s.bottom + myPadding.topBottom());
 		}
 
-		void move(int x, int y, int width, int height) override
+		HWND getHWND() override
+		{
+			return mySlider.m_hWnd;
+		}
+
+		HDWP move(HDWP hdwp, int x, int y, int width, int height) override
 		{
 			int scaling = height;
 			mySlider.SetThumbLength(max(2, scaling));
-			MoveWindow(mySlider.m_hWnd, x, y - 1, width, height, false);
+			return ICell::move(hdwp, x, y - 1, width, height);
 		}
 	};
 
@@ -222,9 +235,9 @@ namespace pauldsp {
 			return Area(s.right + myPadding.leftRight(), s.bottom + myPadding.topBottom());
 		}
 
-		void move(int x, int y, int width, int height) override
+		HWND getHWND() override
 		{
-			MoveWindow(myEdit.m_hWnd, x, y, width, height, false);
+			return myEdit.m_hWnd;
 		}
 	};
 
@@ -241,7 +254,7 @@ namespace pauldsp {
 		{
 			CString out;
 			myButton.GetWindowText(out);
-			out.Append(L"000000");
+			out.Append(L"0000");
 
 			RECT s{ 0, 0, 0, 0 };
 			DrawText(dc->m_hDC, out, out.GetLength(), &s, DT_CALCRECT);
@@ -249,9 +262,9 @@ namespace pauldsp {
 			return Area(myPadding.leftRight() + s.right, myPadding.topBottom() + s.bottom);
 		}
 
-		void move(int x, int y, int width, int height) override
+		HWND getHWND() override
 		{
-			MoveWindow(myButton.m_hWnd, x, y - 2, width, height + 4, false);
+			return myButton.m_hWnd;
 		}
 	};
 
@@ -276,9 +289,9 @@ namespace pauldsp {
 			return Area(myPadding.leftRight() + s.right, myPadding.topBottom() + s.bottom);
 		}
 
-		void move(int x, int y, int width, int height) override
+		HWND getHWND() override
 		{
-			MoveWindow(myCheckbox.m_hWnd, x, y, width, height, false);
+			return myCheckbox.m_hWnd;
 		}
 	};
 
@@ -301,7 +314,7 @@ namespace pauldsp {
 		Row(std::vector<ICell*> cells, int gap, Justification justification, Margin margin, int centerOnIndex)
 			: myCells(cells), myJustification(justification), myGap(gap), myMargin(margin), myCenterOnIndex(centerOnIndex) {}
 
-		Area layout(const CPaintDC* dc, Region parentRect, HWND dialog_hwnd)
+		std::tuple<Area, HDWP> layout(HDWP hdwp, const CPaintDC* dc, Region parentRect, HWND dialog_hwnd)
 		{
 			// Start with a 0,0 coordinate system
 			Point offset = parentRect.origin;
@@ -310,7 +323,7 @@ namespace pauldsp {
 			parentRect.height -= offset.y;
 
 			if (myCells.empty())
-				return Area(0, 0);
+				return std::make_tuple<Area, HDWP>(Area(0, 0), NULL);
 
 			int maxHeight = 0;
 			int width = 0;
@@ -370,17 +383,18 @@ namespace pauldsp {
 				if (totalFlex > 0)
 				{
 					int adjustment = static_cast<int>(floor(leftOverWidth * double(cell->getFlex()) / double(totalFlex)));
-					cell->move(x, y, r.width + adjustment, maxHeight);
+					hdwp = cell->move(hdwp, x, y, r.width + adjustment, maxHeight);
 					x += r.width + myGap + adjustment;
 				}
 				else
 				{
-					cell->move(x, y, r.width, maxHeight);
+					int verticalAdjustment = (maxHeight - r.height) / 2;
+					hdwp = cell->move(hdwp, x, y + verticalAdjustment, r.width, r.height);
 					x += r.width + myGap;
 				}
 			}
 
-			return Area(width + myMargin.leftRight(), maxHeight + myMargin.topBottom());
+			return std::make_tuple(Area(width + myMargin.leftRight(), maxHeight + myMargin.topBottom()), hdwp);
 		}
 	};
 
@@ -394,20 +408,23 @@ namespace pauldsp {
 
 		// Returns the area used by the control.
 		//
-		Area layout(const CPaintDC* dc, Region parentRect, HWND dialog_hwnd)
+		std::tuple<Area, HDWP> layout(HDWP hdwp, const CPaintDC* dc, Region parentRect, HWND dialog_hwnd)
 		{
 			Region currentRect = parentRect;
 			Area spaceUsed{ 0,0 };
 			for (Row& row : myRows)
 			{
-				Area result = row.layout(dc, currentRect, dialog_hwnd);
+				if (hdwp == NULL)
+					return std::make_tuple<Area, HDWP>(Area(0, 0), NULL);
+				auto [result, hdwp_returned] = row.layout(hdwp, dc, currentRect, dialog_hwnd);
+				hdwp = hdwp_returned;
 				spaceUsed.width = max(spaceUsed.width, result.width);
 				spaceUsed.height += result.height;
 				currentRect.origin.y += result.height;
 				currentRect.height -= result.height;
 			}
 
-			return spaceUsed;
+			return std::make_tuple(spaceUsed, hdwp);
 		}
 	};
 }

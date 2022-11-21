@@ -9,7 +9,6 @@
 #include "paulstretch_preset.h"
 #include "paulstretch_menu.h"
 #include "resource.h"
-#include <libPPUI/CDialogResizeHelper.h>
 #include <cmath>
 #include <optional>
 #include "layout_types.h"
@@ -26,7 +25,6 @@ namespace pauldsp {
 		paulstretch_preset myData;
 		std::function<void(paulstretch_preset)> myCallback;
 
-		//std::function<void(paulstretch_preset)> myCallback;
 		bool myIsUIElement = false;
 
 		CEdit myStretchEdit;
@@ -192,7 +190,7 @@ namespace pauldsp {
 			CButton stretch_apply = GetDlgItem(IDC_BUTTON_APPLY_STRETCH);
 			textCell = StaticTextCell(stretch_label, padding);
 			editCell = EditCell(stretch_edit, 7, padding);
-			buttonCell = ButtonCell(stretch_apply, padding);
+			buttonCell = ButtonCell(stretch_apply, Padding(2, 5, 2, 5));
 			rows[currentRow].push_back(&textCell);
 			rows[currentRow].push_back(&editCell);
 			rows[currentRow].push_back(&buttonCell);
@@ -229,7 +227,7 @@ namespace pauldsp {
 			CButton window_apply = GetDlgItem(IDC_BUTTON_APPLY_WINDOW);
 			window_apply_static_cell = StaticTextCell(window_label, padding);
 			window_apply_edit_cell = EditCell(window_edit, 7, padding);
-			window_apply_button_cell = ButtonCell(window_apply, padding);
+			window_apply_button_cell = ButtonCell(window_apply, Padding(2, 5, 2, 5));
 			rows[currentRow].push_back(&window_apply_static_cell);
 			rows[currentRow].push_back(&window_apply_edit_cell);
 			rows[currentRow].push_back(&window_apply_button_cell);
@@ -285,12 +283,13 @@ namespace pauldsp {
 		}
 
 		virtual BOOL OnSize(UINT, CSize)
-		{
+		{	
 			RECT rect;
 			GetClientRect(&rect);
 			CPaintDC dc(*this);
-			Area s = myColumn.layout(&dc, Region(rect), paulstretch_dialog::m_hWnd);
-			Invalidate();
+			HDWP hdwp = BeginDeferWindowPos(16);
+			myColumn.layout(hdwp, &dc, Region(rect), paulstretch_dialog::m_hWnd);
+			EndDeferWindowPos(hdwp);
 
 			return true;
 		}
@@ -695,19 +694,21 @@ namespace pauldsp {
 			GetClientRect(&rect);
 			CPaintDC dc(*this);
 			SelectObjectScope scope(dc, (HGDIOBJ)m_callback->query_font_ex(ui_font_default));
-			Area s = myColumn.layout(&dc, Region(rect), paulstretch_dialog::m_hWnd);
-			Invalidate();
+			HDWP hdwp = BeginDeferWindowPos(16);
+			myColumn.layout(hdwp, &dc, Region(rect), paulstretch_dialog::m_hWnd);
+			EndDeferWindowPos(hdwp);
 
-			return true;
+			return false;
 		}
 
 		void OnInit() override
 		{
+			auto theFont = m_callback->query_font_ex(ui_font_default);
 			EnumChildWindows(
 				m_hWnd,
-				[=](HWND wnd) -> void {
+				[&](HWND wnd) -> void {
 					CWindow thatWindow(wnd);
-					thatWindow.SetFont(m_callback->query_font_ex(ui_font_default), false);
+					thatWindow.SetFont(theFont, false);
 					return;
 				}
 			);
@@ -764,6 +765,7 @@ namespace pauldsp {
 						return;
 					}
 				);
+				OnSize(UINT(), CSize());
 			}
 		}
 	};

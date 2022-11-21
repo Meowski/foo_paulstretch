@@ -19,9 +19,13 @@ namespace pauldsp {
 
 		void init()
 		{
+			myComboBox.SetRedraw(false);
+			myComboBox.SetMinVisible(1);
 			for (Fraction x : myValues)
 				myComboBox.AddString(x.toPrecisionString(4));
 			selectOrDefaultAsFraction(myDefault);
+			myComboBox.SetMinVisible(static_cast<int>(myValues.size()));
+			myComboBox.SetRedraw(true);
 		}
 
 	public:

@@ -288,8 +288,9 @@ namespace pauldsp {
 			GetClientRect(&rect);
 			CPaintDC dc(*this);
 			HDWP hdwp = BeginDeferWindowPos(16);
-			myColumn.layout(hdwp, &dc, Region(rect), paulstretch_dialog::m_hWnd);
-			EndDeferWindowPos(hdwp);
+			auto [area, returnedHDWP] = myColumn.layout(hdwp, &dc, Region(rect), paulstretch_dialog::m_hWnd);
+			if (returnedHDWP != NULL)
+				EndDeferWindowPos(returnedHDWP);
 
 			return true;
 		}
@@ -695,8 +696,9 @@ namespace pauldsp {
 			CPaintDC dc(*this);
 			SelectObjectScope scope(dc, (HGDIOBJ)m_callback->query_font_ex(ui_font_default));
 			HDWP hdwp = BeginDeferWindowPos(16);
-			myColumn.layout(hdwp, &dc, Region(rect), paulstretch_dialog::m_hWnd);
-			EndDeferWindowPos(hdwp);
+			auto [area, returnedHDWP] = myColumn.layout(hdwp, &dc, Region(rect), paulstretch_dialog::m_hWnd);
+			if (returnedHDWP != NULL)
+				EndDeferWindowPos(returnedHDWP);
 
 			return false;
 		}

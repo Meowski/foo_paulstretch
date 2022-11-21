@@ -8,7 +8,7 @@ namespace pauldsp {
 	
 	struct unregister_callback
 	{
-		std::function<void()> destroyer;;
+		std::function<void()> destroyer;
 		unregister_callback(std::function<void()> destroyer) : destroyer(destroyer) {}
 		void unregister() { destroyer(); }
 	};

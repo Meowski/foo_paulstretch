@@ -48,10 +48,10 @@
     <ClInclude Include="dialog_wrapper_helpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="third-party\SDK\enabled_callback.h">
+    <ClInclude Include="main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="main.h">
+    <ClInclude Include="enabled_callback.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -266,6 +266,7 @@
   <ItemGroup>
     <ClInclude Include="dumb_fraction.h" />
     <ClInclude Include="dialog_wrapper_helpers.h" />
+    <ClInclude Include="enabled_callback.h" />
     <ClInclude Include="layout_types.h" />
     <ClInclude Include="paulstretch_dialog.h" />
     <ClInclude Include="paulstretch_menu.h" />
@@ -276,7 +277,6 @@
     <ClInclude Include="main.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="third-party\kissfft\kissfft.hh" />
-    <ClInclude Include="third-party\SDK\enabled_callback.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="foo_paulstretch.rc" />

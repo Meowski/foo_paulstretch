@@ -228,6 +228,7 @@ namespace pauldsp {
 			Fraction clampedValue = Fraction::fromDouble(value);
 			clampedValue = clamp(myMin.getSelectionOrDefault(), clampedValue, myMax.getSelectionOrDefault());
 			mySliderEdit.SetWindowTextW(clampedValue.toPrecisionString(8));
+			mySliderEdit.SetSel(-1);
 			return clampedValue.toDouble(8);
 		}
 

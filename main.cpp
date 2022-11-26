@@ -13,7 +13,7 @@
 // As for 1.1, the version numbers are used by the component update finder to find updates; for that to work, you must have ONLY ONE declaration per DLL. If there are multiple declarations, the component is assumed to be outdated and a version number of "0" is assumed, to overwrite the component with whatever is currently on the site assuming that it comes with proper version numbers.
 DECLARE_COMPONENT_VERSION(
 	"Paulstretch",
-	"2.0 RC",
+	"2.0.0 RC",
 	R"(Applies the paulstretch algorithm during playback.
 
 https://github.com/Meowski/foo_paulstretch)");

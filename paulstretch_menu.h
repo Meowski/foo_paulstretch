@@ -9,10 +9,7 @@ namespace pauldsp {
 	{
 	private:
 		::std::optional<dsp_config_manager::ptr> myConfigManager;
-		bool myEnabledState;
 	public:
-
-		paulstretch_menu() : myEnabledState(false) {}
 
 		enum
 		{

@@ -19,6 +19,32 @@
 namespace pauldsp {
 	static const GUID g_my_ui_element_guid = { 0x8fcd65b5, 0xf1f9, 0x4088, { 0x9d, 0xda, 0xb2, 0xbb, 0x8a, 0xb8, 0x95, 0x9b } };
 
+	// Just want to listen for an enter keypress.
+	//
+	class CEditEnter : public CWindowImpl<CEditEnter, CEdit>
+	{
+		::std::function<void()> myOnEnterCallback;
+	public:
+		BEGIN_MSG_MAP(CEditEnter)
+			MSG_WM_KEYUP(OnKeyUp)
+		END_MSG_MAP()
+
+		void OnKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags) 
+		{
+			if (nChar == VK_RETURN)
+			{
+				myOnEnterCallback();
+			}
+			SetMsgHandled(false);
+		}
+
+		void Create(CEdit edit, ::std::function<void()> callback)
+		{
+			myOnEnterCallback = callback;
+			SubclassWindow(edit);
+		}
+	};
+
 	class paulstretch_dialog : public CDialogImpl<paulstretch_dialog>
 	{
 	protected:
@@ -27,9 +53,9 @@ namespace pauldsp {
 
 		bool myIsUIElement = false;
 
-		CEdit myStretchEdit;
+		CEditEnter myStretchEdit;
 		CButton myStretchApply;
-		CEdit myWindowEdit;
+		CEditEnter myWindowEdit;
 		CButton myWindowApply;
 		CComboBox myMinStretchCombo;
 		CComboBox myMaxStretchCombo;
@@ -303,7 +329,7 @@ namespace pauldsp {
 			initLayout();
 			OnSize(UINT(), CSize());
 			OnInit();
-			
+
 			if (myIsUIElement)
 				myDSPChangedCallback = get_enabled_callback().registerCallback([&]() -> void { changeCallback(); });
 
@@ -322,9 +348,15 @@ namespace pauldsp {
 			myStretchPrecisionCombo = GetDlgItem(IDC_COMBO_STRETCH_PRECISION);
 			myWindowPrecisionCombo = GetDlgItem(IDC_COMBO_WINDOW_PRECISION);
 
-			myStretchEdit = GetDlgItem(IDC_EDIT_STRETCH);
+			myStretchEdit.Create(
+				(CEdit)GetDlgItem(IDC_EDIT_STRETCH),
+				[&]() -> void { OnStretchApply(UINT(), 0, CWindow()); }
+			);
 			myStretchEdit.SetLimitText(15);
-			myWindowEdit = GetDlgItem(IDC_EDIT_WINDOW);
+			myWindowEdit.Create(
+				(CEdit)GetDlgItem(IDC_EDIT_WINDOW),
+				[&]() -> void { OnWindowApply(UINT(), 0, CWindow()); }
+			);
 			myWindowEdit.SetLimitText(15);
 			myEnabledCheckBox = GetDlgItem(IDC_ENABLE_STRETCH);
 			myIsConversionCheckBox = GetDlgItem(IDC_ENABLE_CONVERSION);

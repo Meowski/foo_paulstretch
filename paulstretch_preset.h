@@ -123,6 +123,14 @@ namespace pauldsp {
 			return myStretchAmount;
 		}
 
+		dsp_preset_impl toPreset()
+		{
+			dsp_preset_impl preset;
+			writeData(preset);
+
+			return preset;
+		}
+
 		void writeData(dsp_preset& out)
 		{
 			dsp_preset_builder builder;

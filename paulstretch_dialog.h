@@ -201,10 +201,10 @@ namespace pauldsp {
 			CComboBox min_stretch_combo = GetDlgItem(IDC_COMBO_STRETCH_MIN);
 			CTrackBarCtrl stretch_slider = GetDlgItem(IDC_STRETCH_SLIDER);
 			CComboBox max_stretch_combo = GetDlgItem(IDC_COMBO_STRETCH_MAX);
-			min_stretch_cell = ComboCell(min_stretch_combo, padding);
+			min_stretch_cell = ComboCell(L"0.01", min_stretch_combo, padding);
 			stretch_slider_cell = SliderCell(stretch_slider, padding);
 			stretch_slider_cell.setFlex(1);
-			max_stretch_cell = ComboCell(max_stretch_combo, padding);
+			max_stretch_cell = ComboCell(L"0.001", max_stretch_combo, padding);
 			rows[currentRow].push_back(&min_stretch_cell);
 			rows[currentRow].push_back(&stretch_slider_cell);
 			rows[currentRow].push_back(&max_stretch_cell);
@@ -215,7 +215,7 @@ namespace pauldsp {
 			CStatic stretch_precision_label = GetDlgItem(IDC_STATIC_STRETCH_PRECISION);
 			CComboBox stretch_precision_combo = GetDlgItem(IDC_COMBO_STRETCH_PRECISION);
 			precision_stretch_static_cell = StaticTextCell(stretch_precision_label, padding);
-			precision_stretch_combo_cell = ComboCell(stretch_precision_combo, padding);
+			precision_stretch_combo_cell = ComboCell(L"0.001", stretch_precision_combo, padding);
 			rows[currentRow].push_back(&precision_stretch_static_cell);
 			rows[currentRow].push_back(&precision_stretch_combo_cell);
 
@@ -238,10 +238,10 @@ namespace pauldsp {
 			CComboBox min_window_combo = GetDlgItem(IDC_COMBO_WINDOW_MIN);
 			CTrackBarCtrl window_slider = GetDlgItem(IDC_WINDOW_SIZE_SLIDER);
 			CComboBox max_window_combo = GetDlgItem(IDC_COMBO_WINDOW_MAX);
-			min_window_cell = ComboCell(min_window_combo, padding);
+			min_window_cell = ComboCell(L"0.01", min_window_combo, padding);
 			window_slider_cell = SliderCell(window_slider, padding);
 			window_slider_cell.setFlex(1);
-			max_window_cell = ComboCell(max_window_combo, padding);
+			max_window_cell = ComboCell(L"0.001", max_window_combo, padding);
 			rows[currentRow].push_back(&min_window_cell);
 			rows[currentRow].push_back(&window_slider_cell);
 			rows[currentRow].push_back(&max_window_cell);
@@ -251,7 +251,7 @@ namespace pauldsp {
 			CStatic slider_precision_static = GetDlgItem(IDC_STATIC_WINDOW_PRECISION);
 			CComboBox slider_precision_combo = GetDlgItem(IDC_COMBO_WINDOW_PRECISION);
 			precision_window_static_cell = StaticTextCell(slider_precision_static, padding);
-			precision_window_combo_cell = ComboCell(slider_precision_combo, padding);
+			precision_window_combo_cell = ComboCell(L"0.001", slider_precision_combo, padding);
 			rows[currentRow].push_back(&precision_window_static_cell);
 			rows[currentRow].push_back(&precision_window_combo_cell);
 
@@ -287,7 +287,8 @@ namespace pauldsp {
 			RECT rect;
 			GetClientRect(&rect);
 			CPaintDC dc(*this);
-			HDWP hdwp = BeginDeferWindowPos(16);
+			SelectObjectScope scope(dc, GetFont());
+			HDWP hdwp = BeginDeferWindowPos(18);
 			auto [area, returnedHDWP] = myColumn.layout(hdwp, &dc, Region(rect), paulstretch_dialog::m_hWnd);
 			if (returnedHDWP != NULL)
 				EndDeferWindowPos(returnedHDWP);
@@ -695,7 +696,7 @@ namespace pauldsp {
 			GetClientRect(&rect);
 			CPaintDC dc(*this);
 			SelectObjectScope scope(dc, (HGDIOBJ)m_callback->query_font_ex(ui_font_default));
-			HDWP hdwp = BeginDeferWindowPos(16);
+			HDWP hdwp = BeginDeferWindowPos(18);
 			auto [area, returnedHDWP] = myColumn.layout(hdwp, &dc, Region(rect), paulstretch_dialog::m_hWnd);
 			if (returnedHDWP != NULL)
 				EndDeferWindowPos(returnedHDWP);

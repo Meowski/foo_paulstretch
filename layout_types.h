@@ -159,18 +159,28 @@ namespace pauldsp {
 	{
 	public:
 		CComboBox myCombo;
+		CString myLongestString;
 
-		ComboCell(CComboBox combo = CComboBox(), Padding padding = Padding()) : myCombo(combo), ICell(padding) {}
+		ComboCell
+		(CString longestString = L"",
+			CComboBox combo = CComboBox(),
+			Padding padding = Padding()
+		) : myLongestString(longestString), myCombo(combo), ICell(padding) {}
 
 		Area getDesiredArea(const CPaintDC* dc, HWND dialog_hwnd) override
 		{
-			CString out;
-			out.Append(L"0.001XXX");
-
+			CString out = myLongestString + CString(" ");
+			int arrowSize = GetSystemMetrics(SM_CXVSCROLL);
+			POINT origin{ 0, 0 };
+			POINT p{ arrowSize, 0};
+			ScreenToClient(dialog_hwnd, &origin);
+			ScreenToClient(dialog_hwnd, &p);
+			int arrowWidth = std::abs(p.x - origin.x);
+			
 			RECT s{ 0, 0, 0, 0 };
 			DrawText(dc->m_hDC, out, out.GetLength(), &s, DT_CALCRECT);
 
-			return Area(s.right + myPadding.leftRight(), s.bottom + myPadding.topBottom());
+			return Area(s.right + myPadding.leftRight() + arrowWidth, s.bottom + myPadding.topBottom());
 		}
 
 		HWND getHWND() override

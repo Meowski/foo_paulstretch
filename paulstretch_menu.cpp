@@ -84,17 +84,27 @@ void paulstretch_menu::startMenu()
 }
 */
 
+bool paulstretch_menu::get_display(t_uint32 p_index, pfc::string_base& p_text, t_uint32& p_flags)
+{
+	auto optPreset = queryPreset();
+	if (!optPreset.has_value())
+		p_flags = 0;
+	else
+		(*optPreset).enabled() ? p_flags = menu_flags::checked : 0;
+	get_name(p_index, p_text);
+	return true;
+}
+
 void paulstretch_menu::togglePaulstretch()
 {
-	static_api_ptr_t<dsp_config_manager> dspConfigManager = static_api_ptr_t<dsp_config_manager>();
-	dsp_preset_impl dspPreset;
-	if (dspConfigManager->core_query_dsp(paulstretch_preset::getGUID(), dspPreset))
+	auto optPreset = queryPreset();
+	if (optPreset.has_value())
 	{
-		paulstretch_preset preset(dspPreset);
+		paulstretch_preset preset = *optPreset;
 		preset.myEnabled = !preset.myEnabled;
-		preset.writeData(dspPreset);
+		dsp_preset_impl asDSPPreset = preset.toPreset();
 		fb2k::inMainThread([=]() {
-			paulstretch_preset::replaceData(dspPreset);
+			paulstretch_preset::replaceData(asDSPPreset);
 		});
 
 	}
@@ -105,6 +115,6 @@ void paulstretch_menu::togglePaulstretch()
 		paul_preset.myEnabled = true;
 		dsp_preset_impl preset_impl;
 		paul_preset.writeData(preset_impl);	
-		dspConfigManager->core_enable_dsp(preset_impl, dsp_config_manager::default_insert_last);
+		getConfigManager()->core_enable_dsp(preset_impl, dsp_config_manager::default_insert_last);
 	}
 }

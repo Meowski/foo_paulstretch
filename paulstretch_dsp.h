@@ -156,10 +156,17 @@ namespace pauldsp {
 			{
 				resizePaulstretch(chunk, chunk->get_channels(), myPaulstretchPreset.windowSize());
 			}
+			// Because we can change settings on the fly now (apply_reset call), we need to check window
+			// size changes.
+			else if (myLastSeenWindowSize != myPaulstretchPreset.windowSize())
+			{
+				resizePaulstretch(chunk, chunk->get_channels(), myPaulstretchPreset.windowSize());
+			}
 
 			myLastSeenNumberOfChannels = chunk->get_channels();
 			myLastSeenSampleRate = chunk->get_sample_rate();
 			myLastSeenChannelConfig = chunk->get_channel_config();
+			myLastSeenWindowSize = myPaulstretchPreset.windowSize();
 			myHasSeenChunk = true;
 		}
 
@@ -261,6 +268,7 @@ namespace pauldsp {
 		size_t myLastSeenNumberOfChannels;
 		size_t myLastSeenSampleRate;
 		size_t myLastSeenChannelConfig;
+		double myLastSeenWindowSize;
 		paulstretch_preset myPaulstretchPreset;
 
 		std::vector<NewPaulstretch> myPaulstretch;

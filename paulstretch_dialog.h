@@ -211,9 +211,9 @@ namespace pauldsp {
 			int currentRow = 0;
 			// Row one
 			//
-			CStatic stretch_label = GetDlgItem(IDC_STRETCH_LABEL);
-			CEdit stretch_edit = GetDlgItem(IDC_EDIT_STRETCH);
-			CButton stretch_apply = GetDlgItem(IDC_BUTTON_APPLY_STRETCH);
+			CStatic stretch_label(GetDlgItem(IDC_STRETCH_LABEL));
+			CEdit stretch_edit(GetDlgItem(IDC_EDIT_STRETCH));
+				CButton stretch_apply(GetDlgItem(IDC_BUTTON_APPLY_STRETCH));
 			textCell = StaticTextCell(stretch_label, padding);
 			editCell = EditCell(stretch_edit, 7, padding);
 			buttonCell = ButtonCell(stretch_apply, Padding(2, 5, 2, 5));
@@ -224,9 +224,9 @@ namespace pauldsp {
 			currentRow++;
 			// Row two
 			//
-			CComboBox min_stretch_combo = GetDlgItem(IDC_COMBO_STRETCH_MIN);
-			CTrackBarCtrl stretch_slider = GetDlgItem(IDC_STRETCH_SLIDER);
-			CComboBox max_stretch_combo = GetDlgItem(IDC_COMBO_STRETCH_MAX);
+			CComboBox min_stretch_combo(GetDlgItem(IDC_COMBO_STRETCH_MIN));
+			CTrackBarCtrl stretch_slider(GetDlgItem(IDC_STRETCH_SLIDER));
+			CComboBox max_stretch_combo(GetDlgItem(IDC_COMBO_STRETCH_MAX));
 			min_stretch_cell = ComboCell(L"0.01", min_stretch_combo, padding);
 			stretch_slider_cell = SliderCell(stretch_slider, padding);
 			stretch_slider_cell.setFlex(1);
@@ -238,8 +238,8 @@ namespace pauldsp {
 			currentRow++;
 			// Row Three
 			//
-			CStatic stretch_precision_label = GetDlgItem(IDC_STATIC_STRETCH_PRECISION);
-			CComboBox stretch_precision_combo = GetDlgItem(IDC_COMBO_STRETCH_PRECISION);
+			CStatic stretch_precision_label(GetDlgItem(IDC_STATIC_STRETCH_PRECISION));
+			CComboBox stretch_precision_combo(GetDlgItem(IDC_COMBO_STRETCH_PRECISION));
 			precision_stretch_static_cell = StaticTextCell(stretch_precision_label, padding);
 			precision_stretch_combo_cell = ComboCell(L"0.001", stretch_precision_combo, padding);
 			rows[currentRow].push_back(&precision_stretch_static_cell);
@@ -248,9 +248,9 @@ namespace pauldsp {
 			currentRow++;
 			// Row Four
 			//
-			CStatic window_label = GetDlgItem(IDC_WINDOW_SIZE_LABEL);
-			CEdit window_edit = GetDlgItem(IDC_EDIT_WINDOW);
-			CButton window_apply = GetDlgItem(IDC_BUTTON_APPLY_WINDOW);
+			CStatic window_label(GetDlgItem(IDC_WINDOW_SIZE_LABEL));
+			CEdit window_edit(GetDlgItem(IDC_EDIT_WINDOW));
+			CButton window_apply(GetDlgItem(IDC_BUTTON_APPLY_WINDOW));
 			window_apply_static_cell = StaticTextCell(window_label, padding);
 			window_apply_edit_cell = EditCell(window_edit, 7, padding);
 			window_apply_button_cell = ButtonCell(window_apply, Padding(2, 5, 2, 5));
@@ -261,9 +261,9 @@ namespace pauldsp {
 			currentRow++;
 			// Row Five
 			//
-			CComboBox min_window_combo = GetDlgItem(IDC_COMBO_WINDOW_MIN);
-			CTrackBarCtrl window_slider = GetDlgItem(IDC_WINDOW_SIZE_SLIDER);
-			CComboBox max_window_combo = GetDlgItem(IDC_COMBO_WINDOW_MAX);
+			CComboBox min_window_combo(GetDlgItem(IDC_COMBO_WINDOW_MIN));
+			CTrackBarCtrl window_slider(GetDlgItem(IDC_WINDOW_SIZE_SLIDER));
+			CComboBox max_window_combo(GetDlgItem(IDC_COMBO_WINDOW_MAX));
 			min_window_cell = ComboCell(L"0.01", min_window_combo, padding);
 			window_slider_cell = SliderCell(window_slider, padding);
 			window_slider_cell.setFlex(1);
@@ -274,8 +274,8 @@ namespace pauldsp {
 
 			currentRow++;
 			// Row Six
-			CStatic slider_precision_static = GetDlgItem(IDC_STATIC_WINDOW_PRECISION);
-			CComboBox slider_precision_combo = GetDlgItem(IDC_COMBO_WINDOW_PRECISION);
+			CStatic slider_precision_static(GetDlgItem(IDC_STATIC_WINDOW_PRECISION));
+			CComboBox slider_precision_combo(GetDlgItem(IDC_COMBO_WINDOW_PRECISION));
 			precision_window_static_cell = StaticTextCell(slider_precision_static, padding);
 			precision_window_combo_cell = ComboCell(L"0.001", slider_precision_combo, padding);
 			rows[currentRow].push_back(&precision_window_static_cell);
@@ -283,13 +283,13 @@ namespace pauldsp {
 
 			currentRow++;
 			// Row Seven
-			CCheckBox enabled_checkbox = GetDlgItem(IDC_ENABLE_STRETCH);
+			CCheckBox enabled_checkbox(GetDlgItem(IDC_ENABLE_STRETCH));
 			enabled_checkbox_cell = CheckboxCell(enabled_checkbox, padding);
 			rows[currentRow].push_back(&enabled_checkbox_cell);
 
 			currentRow++;
 			//RowEight
-			CCheckBox conversion_checkbox = GetDlgItem(IDC_ENABLE_CONVERSION);
+			CCheckBox conversion_checkbox(GetDlgItem(IDC_ENABLE_CONVERSION));
 			conversion_checkbox_cell = CheckboxCell(conversion_checkbox, padding);
 			rows[currentRow].push_back(&conversion_checkbox_cell);
 
@@ -364,14 +364,14 @@ namespace pauldsp {
 			selection_handler minStretchSelector(myMinStretchCombo, myMinStretchValues, Fraction(1));
 			selection_handler maxStretchSelector(myMaxStretchCombo, myMaxStretchValues, Fraction(8));
 			selection_handler precisionStretchSelector(myStretchPrecisionCombo, myStretchPrecisionValues, Fraction(1, 10));
-			CTrackBarCtrl slider = GetDlgItem(IDC_STRETCH_SLIDER);
+			CTrackBarCtrl slider(GetDlgItem(IDC_STRETCH_SLIDER));
 			myClampedSlider = clamped_slider(minStretchSelector, slider, myStretchEdit, maxStretchSelector, precisionStretchSelector);
 			myClampedSlider.init(minStretch(), stretchAmount(), maxStretch(), stretchPrecision());
 
 			selection_handler minWindowSelector(myMinWindowCombo, myMinWindowValues, Fraction(1, 100));
 			selection_handler maxWindowSelector(myMaxWindowCombo, myMaxWindowValues, Fraction(2));
 			selection_handler precisionWindowSelector(myWindowPrecisionCombo, myWindowPrecisionValues, Fraction(1, 100));
-			CTrackBarCtrl windowSlider = GetDlgItem(IDC_WINDOW_SIZE_SLIDER);
+			CTrackBarCtrl windowSlider(GetDlgItem(IDC_WINDOW_SIZE_SLIDER));
 			myClampedWindowSlider = clamped_slider(minWindowSelector, windowSlider, myWindowEdit, maxWindowSelector, precisionWindowSelector);
 			myClampedWindowSlider.init(minWindow(), windowSize(), maxWindow(), windowPrecision());
 

@@ -15,6 +15,15 @@
 // Allow scary undocumented ordinal-dll-export functions?
 #define DARKMODE_ALLOW_HAX 1
 
+#define DARKMODE_DEBUG 0
+
+#if DARKMODE_DEBUG
+#define DARKMODE_DEBUG_PRINT(...) PFC_DEBUG_PRINT("DarkMode: ", __VA_ARGS__)
+#else
+#define DARKMODE_DEBUG_PRINT(...)
+#endif
+
+
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
 
@@ -189,6 +198,12 @@ namespace {
 
 
 namespace DarkMode {
+	UINT msgSetDarkMode() {
+		// No need to threadguard this, should be main thread only, not much harm even if it's not
+		static UINT val = 0;
+		if (val == 0) val = RegisterWindowMessage(L"libPPUI:msgSetDarkMode");
+		return val;
+	}
 	bool IsSupportedSystem() {
 		static bool ret = IsWindows10OrGreater();
 		return ret;
@@ -864,7 +879,8 @@ namespace DarkMode {
 						ds.hDC = dc;
 						ds.rcItem = rcPart;
 
-						GetParent().SendMessage(WM_DRAWITEM, (WPARAM)m_hWnd, (LPARAM)&ds);
+						DCStateScope scope(dc);
+						GetParent().SendMessage(WM_DRAWITEM, GetDlgCtrlID(), (LPARAM)&ds);
 					} else {
 						CRect rcText = rcPart;
 						int defMargin = rcText.Height() / 4;
@@ -921,10 +937,15 @@ namespace DarkMode {
 				MSG_WM_PRINTCLIENT(OnPaint)
 				MSG_WM_ERASEBKGND(OnEraseBkgnd)
 				MSG_WM_UPDATEUISTATE(OnUpdateUIState)
+
+				// Note that checkbox implementation likes to paint on its own in response to events 
+				// instead of invalidating and handling WM_PAINT
+				// We have to specifically trigger WM_PAINT to override their rendering with ours
 				MESSAGE_HANDLER_EX(WM_SETFOCUS, OnMsgRedraw)
 				MESSAGE_HANDLER_EX(WM_KILLFOCUS, OnMsgRedraw)
 				MESSAGE_HANDLER_EX(WM_ENABLE, OnMsgRedraw)
 				MESSAGE_HANDLER_EX(WM_SETTEXT, OnMsgRedraw)
+
 				MESSAGE_HANDLER_EX(msgSetDarkMode(), OnSetDarkMode)
 			END_MSG_MAP()
 
@@ -937,12 +958,27 @@ namespace DarkMode {
 			}
 
 			LRESULT OnMsgRedraw(UINT, WPARAM, LPARAM) {
-				Invalidate(); SetMsgHandled(FALSE); return 0;
+				if ( m_dark ) {
+					// PROBLEM: 
+					// Can't invalidate prior to their handling of the message
+					// Causes bugs with specific chains of events - EnableWindow() followed immediately SetWindowText()
+					LRESULT ret = DefWindowProc();
+					Invalidate();
+					return ret;
+				}
+				SetMsgHandled(FALSE); return 0;
 			}
 
 			void OnUpdateUIState(WORD nAction, WORD nState) {
 				(void)nAction;
-				if (nState & (UISF_HIDEACCEL | UISF_HIDEFOCUS)) Invalidate();
+				if ( m_dark && (nState & (UISF_HIDEACCEL | UISF_HIDEFOCUS)) != 0) {
+					// PROBLEM: 
+					// Can't invalidate prior to their handling of the message
+					// Causes bugs with specific chains of events - EnableWindow() followed immediately SetWindowText()
+					DefWindowProc();
+					Invalidate();
+					return;
+				}
 				SetMsgHandled(FALSE);
 			}
 			void PaintHandler(CDCHandle dc) {
@@ -965,7 +1001,8 @@ namespace DarkMode {
 				const DWORD uiState = (DWORD)SendMessage(WM_QUERYUISTATE);
 
 				
-				const bool bPressed = (ctrlState & BST_CHECKED) != 0;
+				const bool bChecked = (ctrlState & BST_CHECKED) != 0;
+				const bool bMixed = (ctrlState & BST_INDETERMINATE) != 0;
 				const bool bHot = (ctrlState & BST_HOT) != 0;
 				const bool bFocus = (ctrlState & BST_FOCUS) != 0 && (uiState & UISF_HIDEFOCUS) == 0;
 
@@ -977,11 +1014,17 @@ namespace DarkMode {
 				if (theme != NULL && IsThemePartDefined(theme, part, 0)) {
 					int state = 0;
 					if (bDisabled) {
-						state = bPressed ? CBS_CHECKEDDISABLED : CBS_UNCHECKEDDISABLED;
+						if ( bChecked ) state = CBS_CHECKEDDISABLED;
+						else if ( bMixed ) state = CBS_MIXEDDISABLED;
+						else state = CBS_UNCHECKEDDISABLED;
 					} else if (bHot) {
-						state = bPressed ? CBS_CHECKEDHOT : CBS_UNCHECKEDHOT;
+						if ( bChecked ) state = CBS_CHECKEDHOT;
+						else if ( bMixed ) state = CBS_MIXEDHOT;
+						else state = CBS_UNCHECKEDNORMAL;
 					} else {
-						state = bPressed ? CBS_CHECKEDNORMAL : CBS_UNCHECKEDNORMAL;
+						if ( bChecked ) state = CBS_CHECKEDNORMAL;
+						else if ( bMixed ) state = CBS_MIXEDNORMAL;
+						else state = CBS_UNCHECKEDNORMAL;
 					}
 
 					CSize size;
@@ -1001,7 +1044,8 @@ namespace DarkMode {
 				if (theme != NULL) CloseThemeData(theme);
 				if (!bDrawn) {
 					int stateEx = bRadio ? DFCS_BUTTONRADIO : DFCS_BUTTONCHECK;
-					if (bPressed) stateEx |= DFCS_CHECKED;
+					if (bChecked) stateEx |= DFCS_CHECKED;
+					// FIX ME bMixed ?
 					if (bDisabled) stateEx |= DFCS_INACTIVE;
 					else if (bHot) stateEx |= DFCS_HOT;
 
@@ -1449,6 +1493,50 @@ namespace DarkMode {
 				dc.DrawText(L"˅", 1, layout.lower, DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_NOPREFIX);
 			}
 		};
+
+		class CNCFrameHook : public CWindowImpl<CNCFrameHook, CWindow> { 
+		public:
+			CNCFrameHook(bool dark) : m_dark(dark) {}
+
+			BEGIN_MSG_MAP_EX(CNCFrameHook)
+				MESSAGE_HANDLER_EX(msgSetDarkMode(), OnSetDarkMode)
+				MSG_WM_NCPAINT(OnNCPaint)
+			END_MSG_MAP()
+
+			void SetDark(bool v) {
+				if (v != m_dark) {
+					m_dark = v; ApplyDark();
+				}
+			}
+			BOOL SubclassWindow(HWND wnd) {
+				auto rv = __super::SubclassWindow(wnd);
+				if (rv) {
+					ApplyDark();
+				}
+				return rv;
+			}
+		private:
+			void OnNCPaint(HRGN rgn) {
+				if (m_dark) {
+					NCPaintDarkFrame(m_hWnd, rgn);
+					return;
+				}
+				SetMsgHandled(FALSE);
+			}
+			void ApplyDark() {
+				ApplyDarkThemeCtrl(m_hWnd, m_dark);
+				Invalidate();
+			}
+			LRESULT OnSetDarkMode(UINT, WPARAM wp, LPARAM) {
+				switch (wp) {
+				case 0: SetDark(false); break;
+				case 1: SetDark(true); break;
+				}
+				return 1;
+			}
+
+			bool m_dark;
+		};
 	}
 
 	void CHooks::AddPopup(HWND wnd) {
@@ -1485,12 +1573,20 @@ namespace DarkMode {
 	void CHooks::AddComboBoxEx(HWND wnd) {
 		this->AddControls(wnd); // recurse to add the combo box
 	}
-	void CHooks::AddEditBox(HWND wnd) { AddGeneric(wnd); }
+	void CHooks::AddEditBox(HWND wnd) { 
+#if 0 // Experimental
+		auto hook = new ImplementOnFinalMessage<CNCFrameHook>(m_dark);
+		hook->SubclassWindow( wnd );
+		AddCtrlMsg( wnd );
+#else
+		AddGeneric(wnd); 
+#endif
+	}
 	void CHooks::AddButton(HWND wnd) { 
 		CButton btn(wnd);
 		auto style = btn.GetButtonStyle();
 		auto type = style & BS_TYPEMASK;
-		if ((type == BS_CHECKBOX || type == BS_AUTOCHECKBOX || type == BS_RADIOBUTTON || type == BS_AUTORADIOBUTTON) && (style & BS_PUSHLIKE) == 0) {
+		if ((type == BS_CHECKBOX || type == BS_AUTOCHECKBOX || type == BS_RADIOBUTTON || type == BS_AUTORADIOBUTTON || type == BS_3STATE || type == BS_AUTO3STATE) && (style & BS_PUSHLIKE) == 0) {
 			// MS checkbox implementation is terminally retarded and won't draw text in correct color
 			// Subclass it and draw our own content
 			// Other button types seem OK
@@ -1567,8 +1663,7 @@ namespace DarkMode {
 		});
 	}
 	void CHooks::AddListBox(HWND wnd) {
-		// Not needed! Yay!
-		// Handling WM_CTLCOLOR* is enough
+		this->AddGeneric( wnd );
 #if 0
 		auto subst = CListControl_ReplaceListBox(wnd);
 		if (subst) AddPPListControl(subst);
@@ -1671,16 +1766,89 @@ namespace DarkMode {
 		m_cleanup.clear();
 	}
 
-	UINT msgSetDarkMode() {
-		// No need to threadguard this, should be main thread only, not much harm even if it's not
-		static UINT val = 0;
-		if (val == 0) val = RegisterWindowMessage(L"libPPUI:msgSetDarkMode");
-		return val;
-	}
-
 	void CHooks::AddApp() {
 		addOp([this] {
 			SetAppDarkMode(this->m_dark);
 		});
+	}
+
+	void NCPaintDarkFrame(HWND wnd_, HRGN rgn_) {
+		// rgn is in SCREEN COORDINATES, possibly (HRGN)1 to indicate no clipping / whole nonclient area redraw
+		// we're working with SCREEN COORDINATES until actual DC painting
+		CWindow wnd = wnd_;
+
+		CRect rcWindow, rcClient;
+		WIN32_OP_D( wnd.GetWindowRect(rcWindow) );
+		WIN32_OP_D( wnd.GetClientRect(rcClient) );
+		WIN32_OP_D( wnd.ClientToScreen( rcClient ) ); // transform all to same coordinate system
+
+		CRgn rgnClip;
+		WIN32_OP_D( rgnClip.CreateRectRgnIndirect(rcWindow) != NULL );
+		if (rgn_ != NULL && rgn_ != (HRGN)1) {
+			// we have a valid HRGN from caller?
+			if (rgnClip.CombineRgn(rgn_, RGN_AND) == NULLREGION) return; // nothing to draw, exit early
+		}
+
+		{
+			// Have scroll bars? Have DefWindowProc() them then exclude from our rgnClip.
+			SCROLLBARINFO si = { sizeof(si) };
+			if (::GetScrollBarInfo(wnd, OBJID_VSCROLL, &si) && (si.rgstate[0] & STATE_SYSTEM_INVISIBLE) == 0 && si.rcScrollBar.left < si.rcScrollBar.right) {
+				CRect rc = si.rcScrollBar;
+				// rcClient.right = rc.right;
+				CRgn rgn; WIN32_OP_D( rgn.CreateRectRgnIndirect(rc) );
+				int status = SIMPLEREGION;
+				if (rgnClip) {
+					status = rgn.CombineRgn(rgn, rgnClip, RGN_AND);
+				}
+				if (status != NULLREGION) {
+					DefWindowProc(wnd, WM_NCPAINT, (WPARAM)rgn.m_hRgn, 0);
+					rgnClip.CombineRgn(rgn, RGN_DIFF); // exclude from further drawing
+				}
+			}
+			if (::GetScrollBarInfo(wnd, OBJID_HSCROLL, &si) && (si.rgstate[0] & STATE_SYSTEM_INVISIBLE) == 0 && si.rcScrollBar.top < si.rcScrollBar.bottom) {
+				CRect rc = si.rcScrollBar;
+				// rcClient.bottom = rc.bottom;
+				CRgn rgn; WIN32_OP_D(rgn.CreateRectRgnIndirect(rc));
+				int status = SIMPLEREGION;
+				if (rgnClip) {
+					status = rgn.CombineRgn(rgn, rgnClip, RGN_AND);
+				}
+				if (status != NULLREGION) {
+					DefWindowProc(wnd, WM_NCPAINT, (WPARAM)rgn.m_hRgn, 0);
+					rgnClip.CombineRgn(rgn, RGN_DIFF); // exclude from further drawing
+				}
+			}
+		}
+
+		const auto colorLight = DarkMode::GetSysColor(COLOR_BTNHIGHLIGHT);
+		const auto colorDark = DarkMode::GetSysColor(COLOR_BTNSHADOW);
+
+		CWindowDC dc( wnd );
+		if (dc.IsNull()) {
+			PFC_ASSERT(!"???");
+			return;
+		}
+
+
+		// Window DC has (0,0) in upper-left corner of our window (not screen, not client)
+		// Turn rcWindow to (0,0), (winWidth, winHeight)
+		CPoint origin = rcWindow.TopLeft();
+		rcWindow.OffsetRect(-origin);
+		rcClient.OffsetRect(-origin);
+
+		if (!rgnClip.IsNull()) {
+			// rgnClip is still in screen coordinates, fix this here
+			rgnClip.OffsetRgn(-origin);
+			dc.SelectClipRgn(rgnClip);
+		}
+
+		// bottom
+		dc.FillSolidRect(CRect(rcClient.left, rcClient.bottom, rcWindow.right, rcWindow.bottom), colorLight);
+		// right
+		dc.FillSolidRect(CRect(rcClient.right, rcWindow.top, rcWindow.right, rcClient.bottom), colorLight);
+		// top
+		dc.FillSolidRect(CRect(rcWindow.left, rcWindow.top, rcWindow.right, rcClient.top), colorDark);
+		// left
+		dc.FillSolidRect(CRect(rcWindow.left, rcClient.top, rcClient.left, rcWindow.bottom), colorDark);
 	}
 }

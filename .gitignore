@@ -3,6 +3,7 @@ foobar2000-Debug/*
 foobar2000-x64-Debug/*
 !foobar2000-x64-Debug/readme.txt
 WTL/
+build.py
 
 
 ## Ignore Visual Studio temporary files, build results, and

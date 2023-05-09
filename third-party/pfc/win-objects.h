@@ -168,7 +168,7 @@ namespace pfc {
 
 	class event : public win32_event {
 	public:
-		event() { create(true, false); }
+		event(bool initial = false) { create(true, initial); }
 
 		HANDLE get_handle() const { return win32_event::get(); }
 	};
@@ -333,5 +333,8 @@ namespace pfc {
 
 #ifdef PFC_WINDOWS_DESKTOP_APP
 	void winSetThreadDescription(HANDLE hThread, const wchar_t * desc);
+
+	pfc::string8 format_window(HWND wnd);
+	pfc::string8 format_windowStyle(DWORD);
 #endif // PFC_WINDOWS_DESKTOP_APP
 }

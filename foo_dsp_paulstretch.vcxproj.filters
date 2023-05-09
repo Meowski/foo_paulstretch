@@ -62,6 +62,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="readme.txt" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">

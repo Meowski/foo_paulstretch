@@ -258,6 +258,9 @@ namespace pfc {
 
 	string8 format_file_size_short(uint64_t size, uint64_t * outScaleUsed = nullptr);
 
+	string8 format_index(size_t idx);
+	string8 format_permutation(const size_t* arg, size_t n);
+	string8 format_mask(bit_array const& mask, size_t n);
 }
 
 inline pfc::string_base & operator<<(pfc::string_base & p_fmt,const char * p_source) {p_fmt.add_string_(p_source); return p_fmt;}
@@ -310,8 +313,10 @@ namespace pfc {
 namespace pfc {
 
 
-	void stringToUpperAppend(string_base & p_out, const char * p_source, t_size p_sourceLen);
-	void stringToLowerAppend(string_base & p_out, const char * p_source, t_size p_sourceLen);
+	void stringToUpperAppend(string_base & p_out, const char * p_source, t_size p_sourceLen = SIZE_MAX);
+	void stringToLowerAppend(string_base & p_out, const char * p_source, t_size p_sourceLen = SIZE_MAX);
+	void stringToUpperHere(string_base& p_out, const char* p_source, t_size p_sourceLen = SIZE_MAX);
+	void stringToLowerHere(string_base& p_out, const char* p_source, t_size p_sourceLen = SIZE_MAX);
 	t_uint32 charLower(t_uint32 param);
 	t_uint32 charUpper(t_uint32 param);
 	char ascii_tolower_lookup(char c);

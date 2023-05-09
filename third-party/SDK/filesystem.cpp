@@ -965,6 +965,10 @@ PFC_NORETURN void foobar2000_io::exception_io_from_win32(DWORD p_code) {
 	case ERROR_INVALID_FUNCTION:
 		// Happens when trying to link files on FAT32 etc
 		throw exception_io_unsupported_feature();
+#if 0
+	case ERROR_BAD_LENGTH:
+		FB2K_BugCheckEx("ERROR_BAD_LENGTH");
+#endif
 	default:
 		throw exception_io_win32_ex(p_code);
 	}
@@ -994,7 +998,8 @@ PFC_NORETURN void foobar2000_io::exception_io_from_nix(int code) {
             // Should not actually get here
             PFC_ASSERT(!"Trying to seek a nonseekable stream");
             throw exception_io_object_not_seekable();
-
+        case ENOTDIR:
+            throw exception_io_not_directory();
             
         default:
             pfc::throw_exception_with_message< exception_io>( PFC_string_formatter() << "Unknown I/O error (#" << code << ")");
@@ -1138,6 +1143,30 @@ bool foobar2000_io::extract_native_path_ex(const char * p_fspath, pfc::string_ba
 		p_native = p_fspath;
 	}
 	return true;
+}
+
+static bool extract_native_path_fsv3(const char* in, pfc::string_base& out, abort_callback& a) {
+	if (foobar2000_io::extract_native_path(in, out)) return true;
+	filesystem_v3::ptr v3;
+	if (v3 &= filesystem::tryGet(in)) {
+		auto n = v3->getNativePath(in, a);
+		if ( n.is_valid() ) {
+			out = n->c_str(); return true;
+		}
+	}
+	return false;
+}
+
+bool foobar2000_io::extract_native_path_archive_aware_ex(const char* in, pfc::string_base& out, abort_callback& a) {
+	if (extract_native_path_fsv3(in, out, a)) return true;
+	
+	if (archive_impl::g_is_unpack_path(in)) {
+		pfc::string8 arc, dummy;
+		if (archive_impl::g_parse_unpack_path(in, arc, dummy)) {
+			return extract_native_path_fsv3(arc, out, a);
+		}
+	}
+	return false;
 }
 
 bool foobar2000_io::extract_native_path_archive_aware(const char * in, pfc::string_base & out) {

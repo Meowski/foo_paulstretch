@@ -902,6 +902,15 @@ string8 format_time_ex(double p_seconds,unsigned p_extra) {
 	return ret;
 }
 
+void stringToUpperHere(string_base& p_out, const char* p_source, t_size p_sourceLen) {
+	p_out.clear();
+	stringToUpperAppend(p_out, p_source, p_sourceLen);
+}
+void stringToLowerHere(string_base& p_out, const char* p_source, t_size p_sourceLen) {
+	p_out.clear();
+	stringToLowerAppend(p_out, p_source, p_sourceLen);
+}
+
 void stringToUpperAppend(string_base & out, const char * src, t_size len) {
 	while(len && *src) {
 		unsigned c; t_size d;
@@ -948,6 +957,29 @@ string8 format_file_size_short(uint64_t size, uint64_t * outUsedScale) {
 	}
 	ret << " " << unit;
 	if (outUsedScale != nullptr) *outUsedScale = scale;
+	return ret;
+}
+
+pfc::string8 format_index(size_t idx) {
+	return idx == SIZE_MAX ? "<n/a>" : pfc::format_uint(idx);
+}
+
+pfc::string8 format_permutation(const size_t* arg, size_t n) {
+	pfc::string_formatter ret;
+	for( size_t walk = 0; walk < n; ++ walk ) {
+		if (arg[walk] != walk) {
+			if ( !ret.is_empty() ) ret << ", ";
+			ret << arg[walk] << "->" << walk;
+		}
+	}
+	return ret;
+}
+pfc::string8 format_mask(pfc::bit_array const& mask, size_t n) {
+	pfc::string_formatter ret;
+	mask.for_each(true, 0, n, [&] (size_t idx) {
+		if (!ret.is_empty() ) ret << ", ";
+		ret << n;
+		});
 	return ret;
 }
 

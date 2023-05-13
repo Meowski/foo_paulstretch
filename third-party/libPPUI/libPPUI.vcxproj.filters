@@ -292,6 +292,9 @@
     <ClCompile Include="EditBoxFix.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="wtl-pp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Text Include="libPPUI-license.txt" />

@@ -1,12 +1,12 @@
 #pragma once
 
-#include "../SDK/foobar2000-winver.h"
+#include <SDK/foobar2000-winver.h>
 
 #ifdef _WIN32
 #define _SECURE_ATL 1
 #endif
 
-#include "../SDK/foobar2000-lite.h"
+#include <SDK/foobar2000-lite.h>
 
 #ifdef _WIN32
 #include <atlbase.h>

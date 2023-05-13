@@ -216,8 +216,6 @@ namespace pauldsp {
 		int myCurPointer;
 		std::uniform_real_distribution<audio_sample> myRand;
 		std::default_random_engine myGenerator;
-		kissfft<audio_sample> myKissFFTR;
-		kissfft<audio_sample> myKissFFTRI;
 		double myAccumulatedSteps;
 
 	public:
@@ -229,8 +227,6 @@ namespace pauldsp {
 			myBufferedSamples(),
 			myRand(0, 2 * PI),
 			myWindowSizeInSamples(requiredSampleSize(windowSizeInSeconds, sampleRate)),
-			myKissFFTR(myWindowSizeInSamples >> 1, false),
-			myKissFFTRI(myWindowSizeInSamples >> 1, true),
 			myGenerator(static_cast<unsigned int>(std::chrono::system_clock::now().time_since_epoch().count())),
 			myAccumulatedSteps(0)
 		{
@@ -245,8 +241,6 @@ namespace pauldsp {
 		void resize(const double windowSizeInSeconds, const size_t sampleRate)
 		{
 			myWindowSizeInSamples = this->requiredSampleSize(windowSizeInSeconds, sampleRate);
-			myKissFFTR = kissfft<audio_sample>(myWindowSizeInSamples >> 1, false);
-			myKissFFTRI = kissfft<audio_sample>(myWindowSizeInSamples >> 1, true);
 			AudioBuffer newBuffers[2];
 			for (int i = 0; i < 2; i++)
 				newBuffers[i] = AudioBuffer(myWindowSizeInSamples);
@@ -260,6 +254,11 @@ namespace pauldsp {
 			myAccumulatedSteps = 0;
 			myBufferedSamples.clear();
 			setupWindow();
+		}
+
+		size_t windowSize()
+		{
+			return max(0, myWindowSizeInSamples);
 		}
 
 		void feed(const audio_sample sample)
@@ -287,10 +286,14 @@ namespace pauldsp {
 				myBufferedSamples.push_back(sample);
 		}
 
-		AudioBuffer* step(const double stretch_amount)
+		AudioBuffer* step(
+			const double stretch_amount,
+			kissfft<audio_sample> timeToFreq,
+			kissfft<audio_sample> freqToTime
+		)
 		{
 			copyQueuedSamplesToCurPointer();
-			AudioBuffer* buf = stretch();
+			AudioBuffer* buf = stretch(timeToFreq, freqToTime);
 			if (buf == nullptr)
 				return &myOutput;
 
@@ -375,7 +378,7 @@ namespace pauldsp {
 			return original_size;
 		}
 
-		AudioBuffer* stretch();
+		AudioBuffer* stretch(kissfft<audio_sample> timeToFreq, kissfft<audio_sample> freqToTime);
 		void combineWindows();
 	};
 
@@ -388,14 +391,17 @@ namespace pauldsp {
 
 	// Note: kiss_fftr scales by nfft/2 while kiss_fftri scales by 2
 	//
-	inline AudioBuffer* NewPaulstretch::stretch()
+	inline AudioBuffer* NewPaulstretch::stretch(
+		kissfft<audio_sample> timeToFreq,
+		kissfft<audio_sample> freqToTime
+	)
 	{
 
 		myBuffers[myCurPointer].multiply(myWindow);;
 
 		size_t numFreq = (myWindowSizeInSamples / 2) + 1;
 		std::vector<std::complex<audio_sample>> frequencies(numFreq);
-		myKissFFTR.transform_real(myBuffers[myCurPointer].getArrayPointer(), frequencies.data());
+		timeToFreq.transform_real(myBuffers[myCurPointer].getArrayPointer(), frequencies.data());
 		frequencies[numFreq - 1] = std::complex<audio_sample>(frequencies[0].imag(), 0);
 		frequencies[0].imag(0);
 
@@ -406,7 +412,7 @@ namespace pauldsp {
 			frequencies[i] *= exp(random_complex);
 		}
 
-		myKissFFTRI.transform_real_inverse(frequencies.data(), myBuffers[myCurPointer].getArrayPointer());
+		freqToTime.transform_real_inverse(frequencies.data(), myBuffers[myCurPointer].getArrayPointer());
 
 		for (size_t i = 0; i < myWindowSizeInSamples; i++)
 			myBuffers[myCurPointer].set(i, myBuffers[myCurPointer].get(i) * myWindow[i] / myWindowSizeInSamples);

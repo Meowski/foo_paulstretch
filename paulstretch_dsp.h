@@ -20,7 +20,9 @@ namespace pauldsp {
 			myLastSeenSampleRate(0),
 			myLastSeenChannelConfig(0),
 			myPaulstretchPreset(),
-			myHasSeenChunk(false)
+			myHasSeenChunk(false),
+			myKissFFTR(2, false),
+			myKissFFTRI(2, true)
 		{
 			if (!readPreset(preset))
 				pfc::outputDebugLine("Failed to read preset - paulstretchDSP.h constructor.");
@@ -92,7 +94,7 @@ namespace pauldsp {
 		{
 			std::vector<AudioBuffer*> output(myLastSeenNumberOfChannels);
 			for (size_t i = 0; i < myLastSeenNumberOfChannels; i++)
-				output[i] = myPaulstretch[i].step(stretch_amount);
+				output[i] = myPaulstretch[i].step(stretch_amount, myKissFFTR, myKissFFTRI);
 			if (!output.empty() && !output[0]->empty())
 				combineAndOutput(output);
 		}
@@ -178,6 +180,13 @@ namespace pauldsp {
 				myPaulstretch.push_back(NewPaulstretch(window_size, chunk->get_sample_rate()));
 			for (size_t i = 0; i < myPaulstretch.size(); i++)
 				myPaulstretch[i].resize(window_size, chunk->get_sample_rate());
+
+			if (myPaulstretch.empty() || window_size <= 0.0)
+				return;
+
+			size_t windowSizeInSamples = myPaulstretch[0].windowSize();
+			myKissFFTR = kissfft<audio_sample>(windowSizeInSamples >> 1, false);
+			myKissFFTRI = kissfft<audio_sample>(windowSizeInSamples >> 1, true);
 		}
 
 		void on_endofplayback(abort_callback& callback)
@@ -272,5 +281,7 @@ namespace pauldsp {
 		paulstretch_preset myPaulstretchPreset;
 
 		std::vector<NewPaulstretch> myPaulstretch;
+		kissfft<audio_sample> myKissFFTR;
+		kissfft<audio_sample> myKissFFTRI;
 	};
 }

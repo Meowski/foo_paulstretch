@@ -1,18 +1,19 @@
 # Changelog
 
-## [2.0] - TBD
+## [2.0.1]
 ### Added
 - Dark Mode support.
-- Added UI Element support. 
+- UI Element support. 
     - Allows resizable & embeddable settings window. 
     - Font changes are respected in UI element windows (when embedded in foobar2000 or opened from View > DSP > Paulstretch). Other windows use the default system font.
-    - The 'enabled' checkmark is updated across UI elements. This includes using the 'Paulstretch Toggle' menu command. Other settings do not sync.
+    - The 'enabled' checkmark is updated across UI elements. This includes using the `Paulstretch Toggle` menu command. Other settings do not sync; this is intentional.
 - Added min and max value dropdowns for the stretch/window size values.
-- Precision dropdowns specifying how many decimals to snap slider values to.
+- Precision dropdown menus allow you to specify decimal place values when using the slider bar.
 - Shorten mode support by selecting the 0.5 minimum stretch option. The scaling factor is equal to `1 / stretch`. For example, if you wanted to speed up a song by 10%, you would want a stretch value of 0.909090...
+- Support new DSP api call that allows settings to be changed without destroying the dsp chain.  Practically, this means changing the stretch amount should be smooth without any crossfades necessary.
 
 ### Changed
-- Moved the settings dialog to View > DSP > Paulstretch. This appears more idiomatic for DSP plugins. The toggle menu command remains under Playback.
+- Moved the settings dialog menu command from `Playback > Paulstretch Settings` to `View > DSP > Paulstretch`.
 
 ### Fixed
 - There was a bug in the FFT window size optimization which degraded performance by nearly an order of magnitude (`O(n^2)` vs `O(nlog(n)`) in certain cases. Particularly if you used a window size of 0.21 seconds.
